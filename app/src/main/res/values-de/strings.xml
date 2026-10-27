@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">RetroToon TV</string>
+    <string name="app_subtitle">Öffentliches Internetarchiv</string>
+    <string name="nav_featured">Empfohlen</string>
+    <string name="nav_search">Suchen</string>
+    <string name="nav_watchlist">Merkliste</string>
+    <string name="category_all">Alle Klassiker</string>
+    <string name="category_superman">Superman (1941)</string>
+    <string name="category_popeye">Popeye der Seemann</string>
+    <string name="category_betty">Betty Boop</string>
+    <string name="category_serials">Buster Keaton &amp; Slapstick</string>
+    <string name="search_placeholder">Gemeinfreie Zeichentrickfilme suchen...</string>
+    <string name="empty_watchlist_title">Ihre Merkliste ist leer</string>
+    <string name="empty_watchlist_subtitle">Speichern Sie Ihre Lieblings-Cartoons von Betty Boop, Popeye und Superman.</string>
+    <string name="browse_cartoons">Klassiker Durchsuchen</string>
+    <string name="play_stream">Streamen</string>
+    <string name="saved">Gespeichert</string>
+    <string name="my_list">+ Meine Liste</string>
+    <string name="details">Details</string>
+    <string name="popular_cartoons">Beliebte Klassiker</string>
+    <string name="public_domain_badge">GEMEINFREI (VOR 1960)</string>
+    <string name="internet_archive">INTERNET ARCHIV</string>
+    <string name="close">Schließen</string>
+    <string name="rate_title">Gefallen Ihnen die Cartoons?</string>
+    <string name="rate_subtitle">Helfen Sie uns, gemeinfreie Animationen frei zugänglich zu halten, mit einer Bewertung im Google Play Store!</string>
+    <string name="rate_primary">5 Sterne Bewerten ★</string>
+    <string name="rate_secondary">Später erinnern</string>
+    <string name="share_title">Magie des Goldenen Zeitalters!</string>
+    <string name="share_subtitle">Teilen Sie RetroToon TV mit Freunden, um klassische Kurzfilme kostenlos zu streamen.</string>
+    <string name="share_primary">App Teilen</string>
+    <string name="share_secondary">Vielleicht später</string>
+    <string name="dont_ask_again">Nicht mehr fragen</string>
+</resources>

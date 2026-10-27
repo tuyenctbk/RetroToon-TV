@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Antenna -->
+    <path
+        android:strokeColor="#FFC857"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,39 L40,25" />
+    <path
+        android:strokeColor="#FFC857"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,39 L68,25" />
+    <path
+        android:fillColor="#FFC857"
+        android:pathData="M38,25 A2.5,2.5 0 1,0 42,25 A2.5,2.5 0 1,0 38,25" />
+    <path
+        android:fillColor="#FFC857"
+        android:pathData="M66,25 A2.5,2.5 0 1,0 70,25 A2.5,2.5 0 1,0 66,25" />
+
+    <!-- TV Legs -->
+    <path
+        android:strokeColor="#8A5A36"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M34,81 L30,88" />
+    <path
+        android:strokeColor="#8A5A36"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M74,81 L78,88" />
+
+    <!-- Retro TV Cabinet -->
+    <path
+        android:fillColor="#E63946"
+        android:strokeColor="#9B1D20"
+        android:strokeWidth="1.5"
+        android:pathData="M33,39 h42 c4.4,0 8,3.6 8,8 v26 c0,4.4 -3.6,8 -8,8 h-42 c-4.4,0 -8,-3.6 -8,-8 v-26 c0,-4.4 3.6,-8 8,-8 z" />
+
+    <!-- TV CRT Screen Bezel -->
+    <path
+        android:fillColor="#1D1D2C"
+        android:pathData="M31,43 h35 c2.5,0 4.5,2 4.5,4.5 v25 c0,2.5 -2,4.5 -4.5,4.5 h-35 c-2.5,0 -4.5,-2 -4.5,-4.5 v-25 c0,-2.5 2,-4.5 4.5,-4.5 z" />
+
+    <!-- Glowing Screen Phosphor Glass -->
+    <path
+        android:fillColor="#F4D58D"
+        android:pathData="M33,45 h31 c2,0 3.5,1.5 3.5,3.5 v21 c0,2 -1.5,3.5 -3.5,3.5 h-31 c-2,0 -3.5,-1.5 -3.5,-3.5 v-21 c0,-2 1.5,-3.5 3.5,-3.5 z" />
+
+    <!-- 1930s Rubber-Hose Eyes (Left pie eye) -->
+    <path
+        android:fillColor="#1B1924"
+        android:pathData="M43,53 A4,4.5 0 1,0 43,62 A4,4.5 0 1,0 43,53" />
+    <path
+        android:fillColor="#F4D58D"
+        android:pathData="M44,55 L40,57.5 L44,60 Z" />
+
+    <!-- Right pie eye -->
+    <path
+        android:fillColor="#1B1924"
+        android:pathData="M54,53 A4,4.5 0 1,0 54,62 A4,4.5 0 1,0 54,53" />
+    <path
+        android:fillColor="#F4D58D"
+        android:pathData="M55,55 L51,57.5 L55,60 Z" />
+
+    <!-- Cheerful Vintage Smile -->
+    <path
+        android:strokeColor="#1B1924"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M42,65 Q48.5,70 55,65" />
+    <path
+        android:strokeColor="#E63946"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M40,64 L41,66" />
+    <path
+        android:strokeColor="#E63946"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:pathData="M57,64 L56,66" />
+
+    <!-- Right Panel Controls -->
+    <!-- Dial 1 -->
+    <path
+        android:fillColor="#FFD166"
+        android:pathData="M75,47 A3,3 0 1,0 75,53 A3,3 0 1,0 75,47" />
+    <path
+        android:strokeColor="#1B1924"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:pathData="M75,48 L75,50" />
+
+    <!-- Dial 2 -->
+    <path
+        android:fillColor="#FFD166"
+        android:pathData="M75,56 A3,3 0 1,0 75,62 A3,3 0 1,0 75,56" />
+    <path
+        android:strokeColor="#1B1924"
+        android:strokeWidth="1"
+        android:strokeLineCap="round"
+        android:pathData="M75,58 L77,59" />
+
+    <!-- Speaker grill lines -->
+    <path
+        android:strokeColor="#FFD166"
+        android:strokeWidth="1"
+        android:pathData="M72,67 h6 M72,70 h6 M72,73 h6" />
+</vector>

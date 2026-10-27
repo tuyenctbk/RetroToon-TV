@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">RetroToon TV</string>
+    <string name="app_subtitle">パブリックドメイン・インターネットアーカイブ</string>
+    <string name="nav_featured">おすすめ</string>
+    <string name="nav_search">検索</string>
+    <string name="nav_watchlist">マイリスト</string>
+    <string name="category_all">すべての名作</string>
+    <string name="category_superman">スーパーマン (1941)</string>
+    <string name="category_popeye">ポパイ</string>
+    <string name="category_betty">ベティ・ブープ</string>
+    <string name="category_serials">バスター・キートン &amp; コメディ</string>
+    <string name="search_placeholder">パブリックドメインの短編アニメを検索...</string>
+    <string name="empty_watchlist_title">マイリストは空です</string>
+    <string name="empty_watchlist_subtitle">お気に入りのベティ・ブープ、ポパイ、スーパーマンの作品を追加しましょう。</string>
+    <string name="browse_cartoons">名作アニメを見る</string>
+    <string name="play_stream">ストリーミング</string>
+    <string name="saved">保存済み</string>
+    <string name="my_list">+ リストに追加</string>
+    <string name="details">詳細</string>
+    <string name="popular_cartoons">人気の名作アニメ</string>
+    <string name="public_domain_badge">パブリックドメイン (1960年以前)</string>
+    <string name="internet_archive">インターネット・アーカイブ</string>
+    <string name="close">閉じる</string>
+    <string name="rate_title">クラシックアニメをお楽しみですか？</string>
+    <string name="rate_subtitle">Google PlayでRetroToon TVを評価して、パブリックドメインアニメの無料公開を応援してください！</string>
+    <string name="rate_primary">5つ星で評価 ★</string>
+    <string name="rate_secondary">あとで通知</string>
+    <string name="share_title">黄金時代の魔法を分かち合おう！</string>
+    <string name="share_subtitle">友達や家族とRetroToon TVを共有して、名作短編アニメを無料で楽しんでもらいましょう。</string>
+    <string name="share_primary">アプリを共有</string>
+    <string name="share_secondary">また今度</string>
+    <string name="dont_ask_again">今後表示しない</string>
+</resources>

@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">RetroToon TV</string>
+    <string name="app_subtitle">公共领域互联网档案馆</string>
+    <string name="nav_featured">精选</string>
+    <string name="nav_search">搜索</string>
+    <string name="nav_watchlist">收藏夹</string>
+    <string name="category_all">全部经典</string>
+    <string name="category_superman">超人 (1941)</string>
+    <string name="category_popeye">大力水手</string>
+    <string name="category_betty">贝蒂娃娃</string>
+    <string name="category_serials">巴斯特·基顿与滑稽短片</string>
+    <string name="search_placeholder">搜索互联网档案馆公共领域动画...</string>
+    <string name="empty_watchlist_title">您的收藏夹为空</string>
+    <string name="empty_watchlist_subtitle">收藏您最喜欢的贝蒂娃娃、大力水手和超人系列随时观看。</string>
+    <string name="browse_cartoons">浏览经典动画</string>
+    <string name="play_stream">播放</string>
+    <string name="saved">已保存</string>
+    <string name="my_list">+ 添加收藏</string>
+    <string name="details">详情</string>
+    <string name="popular_cartoons">热门经典动画</string>
+    <string name="public_domain_badge">公共领域 (1960年前)</string>
+    <string name="internet_archive">互联网档案馆</string>
+    <string name="close">关闭</string>
+    <string name="rate_title">喜欢这些复古动画吗？</string>
+    <string name="rate_subtitle">在 Google Play 上给 RetroToon TV 评分，支持我们保持公共领域动画免费开放！</string>
+    <string name="rate_primary">五星好评 ★</string>
+    <string name="rate_secondary">以后再说</string>
+    <string name="share_title">分享黄金时代的魔法！</string>
+    <string name="share_subtitle">将 RetroToon TV 分享给朋友和家人，让他们免费观看经典短片。</string>
+    <string name="share_primary">分享应用</string>
+    <string name="share_secondary">稍后提醒</string>
+    <string name="dont_ask_again">不再提示</string>
+</resources>

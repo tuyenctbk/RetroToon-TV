@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">RetroToon TV</string>
+    <string name="app_subtitle">Archives Internet du Domaine Public</string>
+    <string name="nav_featured">À l\'affiche</string>
+    <string name="nav_search">Rechercher</string>
+    <string name="nav_watchlist">Favoris</string>
+    <string name="category_all">Tous les Classiques</string>
+    <string name="category_superman">Superman (1941)</string>
+    <string name="category_popeye">Popeye le Marin</string>
+    <string name="category_betty">Betty Boop</string>
+    <string name="category_serials">Buster Keaton et Comédies</string>
+    <string name="search_placeholder">Rechercher des dessins animés du domaine public...</string>
+    <string name="empty_watchlist_title">Votre liste est vide</string>
+    <string name="empty_watchlist_subtitle">Ajoutez vos courts métrages préférés de Betty Boop, Popeye et Superman à vos favoris.</string>
+    <string name="browse_cartoons">Explorer les Classiques</string>
+    <string name="play_stream">Diffuser</string>
+    <string name="saved">Enregistré</string>
+    <string name="my_list">+ Ma Liste</string>
+    <string name="details">Détails</string>
+    <string name="popular_cartoons">Classiques Populaires</string>
+    <string name="public_domain_badge">DOMAINE PUBLIC (AVANT 1960)</string>
+    <string name="internet_archive">ARCHIVES INTERNET</string>
+    <string name="close">Fermer</string>
+    <string name="rate_title">Vous aimez les dessins animés?</string>
+    <string name="rate_subtitle">Aidez-nous à garder l\'animation du domaine public gratuite en évaluant RetroToon TV sur Google Play!</string>
+    <string name="rate_primary">Noter 5 Étoiles ★</string>
+    <string name="rate_secondary">Plus tard</string>
+    <string name="share_title">Partagez la Magie de l\'Âge d\'Or!</string>
+    <string name="share_subtitle">Partagez RetroToon TV avec vos proches pour visionner des courts métrages classiques gratuitement.</string>
+    <string name="share_primary">Partager l\'App</string>
+    <string name="share_secondary">Peut-être plus tard</string>
+    <string name="dont_ask_again">Ne plus demander</string>
+</resources>

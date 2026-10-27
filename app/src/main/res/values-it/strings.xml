@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">RetroToon TV</string>
+    <string name="app_subtitle">Archivio Pubblico Internet</string>
+    <string name="nav_featured">In Evidenza</string>
+    <string name="nav_search">Cerca</string>
+    <string name="nav_watchlist">Preferiti</string>
+    <string name="category_all">Tutti i Classici</string>
+    <string name="category_superman">Superman (1941)</string>
+    <string name="category_popeye">Braccio di Ferro</string>
+    <string name="category_betty">Betty Boop</string>
+    <string name="category_serials">Buster Keaton &amp; Commedie</string>
+    <string name="search_placeholder">Cerca cartoni animati di pubblico dominio...</string>
+    <string name="empty_watchlist_title">La tua lista è vuota</string>
+    <string name="empty_watchlist_subtitle">Salva i tuoi cortometraggi preferiti di Betty Boop, Braccio di Ferro e Superman.</string>
+    <string name="browse_cartoons">Esplora i Classici</string>
+    <string name="play_stream">Riproduci</string>
+    <string name="saved">Salvato</string>
+    <string name="my_list">+ Preferiti</string>
+    <string name="details">Dettagli</string>
+    <string name="popular_cartoons">Classici Popolari</string>
+    <string name="public_domain_badge">PUBBLICO DOMINIO (PRE-1960)</string>
+    <string name="internet_archive">ARCHIVIO INTERNET</string>
+    <string name="close">Chiudi</string>
+    <string name="rate_title">Ti piacciono i cartoni vintage?</string>
+    <string name="rate_subtitle">Aiutaci a mantenere l\'animazione di pubblico dominio gratuita valutando RetroToon TV su Google Play!</string>
+    <string name="rate_primary">Valuta 5 Stelle ★</string>
+    <string name="rate_secondary">Ricordamelo più tardi</string>
+    <string name="share_title">Condividi la Magia dell\'Età d\'Oro!</string>
+    <string name="share_subtitle">Condividi RetroToon TV con gli amici per guardare cortometraggi classici gratis.</string>
+    <string name="share_primary">Condividi App</string>
+    <string name="share_secondary">Forse dopo</string>
+    <string name="dont_ask_again">Non chiedere più</string>
+</resources>

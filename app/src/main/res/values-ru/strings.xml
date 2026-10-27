@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">RetroToon TV</string>
+    <string name="app_subtitle">Архив общественных достояний</string>
+    <string name="nav_featured">Избранное</string>
+    <string name="nav_search">Поиск</string>
+    <string name="nav_watchlist">Список</string>
+    <string name="category_all">Все классики</string>
+    <string name="category_superman">Супермен (1941)</string>
+    <string name="category_popeye">Моряк Папай</string>
+    <string name="category_betty">Бетти Буп</string>
+    <string name="category_serials">Бастер Китон и комедии</string>
+    <string name="search_placeholder">Поиск мультфильмов общественного достояния...</string>
+    <string name="empty_watchlist_title">Ваш список пуст</string>
+    <string name="empty_watchlist_subtitle">Добавляйте любимые мультфильмы Бетти Буп, Папая и Супермена в закладки.</string>
+    <string name="browse_cartoons">Обзор классики</string>
+    <string name="play_stream">Смотреть</string>
+    <string name="saved">Сохранено</string>
+    <string name="my_list">+ В список</string>
+    <string name="details">Подробнее</string>
+    <string name="popular_cartoons">Популярная классика</string>
+    <string name="public_domain_badge">ОБЩЕСТВЕННОЕ ДОСТОЯНИЕ (ДО 1960)</string>
+    <string name="internet_archive">ИНТЕРНЕТ АРХИВ</string>
+    <string name="close">Закрыть</string>
+    <string name="rate_title">Нравятся винтажные мультфильмы?</string>
+    <string name="rate_subtitle">Помогите нам сохранить анимацию бесплатной, оценив RetroToon TV в Google Play!</string>
+    <string name="rate_primary">Оценить на 5 звезд ★</string>
+    <string name="rate_secondary">Напомнить позже</string>
+    <string name="share_title">Поделитесь магией Золотого века!</string>
+    <string name="share_subtitle">Расскажите друзьям и близким о RetroToon TV, чтобы бесплатно смотреть классические короткометражки.</string>
+    <string name="share_primary">Поделиться приложением</string>
+    <string name="share_secondary">Возможно позже</string>
+    <string name="dont_ask_again">Больше не спрашивать</string>
+</resources>

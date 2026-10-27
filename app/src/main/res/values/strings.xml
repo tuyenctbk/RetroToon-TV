@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">RetroToon TV</string>
+    <string name="app_subtitle">Public Domain Internet Archive</string>
+    <string name="nav_featured">Featured</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_watchlist">Watchlist</string>
+    <string name="category_all">All Classics</string>
+    <string name="category_superman">Superman (1941)</string>
+    <string name="category_popeye">Popeye the Sailor</string>
+    <string name="category_betty">Betty Boop</string>
+    <string name="category_serials">Buster Keaton &amp; Slapstick</string>
+    <string name="search_placeholder">Search Internet Archive public domain cartoons...</string>
+    <string name="empty_watchlist_title">Your Watchlist is Empty</string>
+    <string name="empty_watchlist_subtitle">Bookmark your favorite Betty Boop, Popeye, and Superman serials to watch anytime.</string>
+    <string name="browse_cartoons">Browse Classic Cartoons</string>
+    <string name="play_stream">Stream Short</string>
+    <string name="saved">Saved</string>
+    <string name="my_list">+ My List</string>
+    <string name="details">Details</string>
+    <string name="popular_cartoons">Popular Classic Cartoons</string>
+    <string name="public_domain_badge">PUBLIC DOMAIN (PRE-1960)</string>
+    <string name="internet_archive">INTERNET ARCHIVE</string>
+    <string name="close">Close</string>
+    <string name="rate_title">Enjoying Vintage Cartoons?</string>
+    <string name="rate_subtitle">Help us keep public domain animation free and accessible by rating RetroToon TV on Google Play!</string>
+    <string name="rate_primary">Rate 5 Stars ★</string>
+    <string name="rate_secondary">Remind Later</string>
+    <string name="share_title">Spread the Golden Age Magic!</string>
+    <string name="share_subtitle">Share RetroToon TV with friends and family so they can stream classic shorts for free.</string>
+    <string name="share_primary">Share App</string>
+    <string name="share_secondary">Maybe Later</string>
+    <string name="dont_ask_again">Don\'t ask again</string>
+</resources>

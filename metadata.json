@@ -1,0 +1,6 @@
+{
+  "name": "RetroToon TV",
+  "description": "Stream classic public domain cartoons & serial shorts (Betty Boop, Popeye, Superman 1941, Felix the Cat) from Internet Archive with a Leanback TV experience.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

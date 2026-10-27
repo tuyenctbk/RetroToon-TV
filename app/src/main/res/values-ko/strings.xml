@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">RetroToon TV</string>
+    <string name="app_subtitle">퍼블릭 도메인 인터넷 아카이브</string>
+    <string name="nav_featured">추천</string>
+    <string name="nav_search">검색</string>
+    <string name="nav_watchlist">보관함</string>
+    <string name="category_all">모든 클래식</string>
+    <string name="category_superman">슈퍼맨 (1941)</string>
+    <string name="category_popeye">뽀빠이</string>
+    <string name="category_betty">베티 룹</string>
+    <string name="category_serials">버스터 키튼 &amp; 슬러프스틱</string>
+    <string name="search_placeholder">퍼블릭 도메인 만화 영화 검색...</string>
+    <string name="empty_watchlist_title">보관함이 비어 있습니다</string>
+    <string name="empty_watchlist_subtitle">좋아하는 베티 룹, 뽀빠이, 슈퍼맨 시리즈를 보관함에 추가하세요.</string>
+    <string name="browse_cartoons">클래식 애니메이션 탐색</string>
+    <string name="play_stream">재생</string>
+    <string name="saved">저장됨</string>
+    <string name="my_list">+ 보관함 추가</string>
+    <string name="details">상세정보</string>
+    <string name="popular_cartoons">인기 클래식 만화</string>
+    <string name="public_domain_badge">퍼블릭 도메인 (1960년 이전)</string>
+    <string name="internet_archive">인터넷 아카이브</string>
+    <string name="close">닫기</string>
+    <string name="rate_title">빈티지 만화를 즐기고 계신가요?</string>
+    <string name="rate_subtitle">Google Play에서 RetroToon TV를 평가하여 퍼블릭 도메인 애니메이션 보존을 응원해주세요!</string>
+    <string name="rate_primary">5점 평가하기 ★</string>
+    <string name="rate_secondary">나중에</string>
+    <string name="share_title">황금기의 마법을 공유하세요!</string>
+    <string name="share_subtitle">친구와 가족에게 RetroToon TV를 소개하여 클래식 단편을 무료로 즐기세요.</string>
+    <string name="share_primary">앱 공유하기</string>
+    <string name="share_secondary">다음에 하기</string>
+    <string name="dont_ask_again">다시 묻지 않기</string>
+</resources>
