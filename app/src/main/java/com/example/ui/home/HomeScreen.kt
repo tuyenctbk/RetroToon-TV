@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,15 +37,22 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.focusable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Anchor
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.VolunteerActivism
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -61,6 +69,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import com.example.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -103,6 +114,9 @@ fun HomeScreen(
     onToggleWatchlist: (CartoonItem) -> Unit,
     onSetHero: (CartoonItem) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
+    onClearRecentlyWatched: () -> Unit = {},
+    onOpenDonation: () -> Unit = {},
+    onDismissDonationBanner: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(
@@ -118,8 +132,70 @@ fun HomeScreen(
                 activeTab = uiState.currentTab,
                 watchlistCount = uiState.watchlistItems.size,
                 isWideScreen = isWideScreen,
-                onTabSelected = onTabSelected
+                isSupporter = uiState.isSupporter,
+                onTabSelected = onTabSelected,
+                onOpenDonation = onOpenDonation
             )
+
+            // Top-Level Instant Search Bar for filtering library by title or character name
+            Surface(
+                color = CinemaDark,
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CinemaBorder),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = if (isWideScreen) 28.dp else 16.dp, vertical = 6.dp)
+            ) {
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = { query ->
+                        onSearchQueryChanged(query)
+                        if (query.isNotBlank() && uiState.currentTab != "search") {
+                            onTabSelected("search")
+                        }
+                    },
+                    placeholder = {
+                        Text(
+                            text = stringResource(R.string.search_placeholder),
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 13.sp
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = RetroGold,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (uiState.searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { onSearchQueryChanged("") }) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = stringResource(R.string.close),
+                                    tint = Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = RetroGold,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = CinemaSurfaceVariant,
+                        unfocusedContainerColor = CinemaSurfaceVariant,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("top_level_search_bar")
+                )
+            }
 
             // Main Content Area
             Box(modifier = Modifier.weight(1f)) {
@@ -132,7 +208,10 @@ fun HomeScreen(
                             onPlay = onPlay,
                             onSelectDetail = onSelectDetail,
                             onToggleWatchlist = onToggleWatchlist,
-                            onSetHero = onSetHero
+                            onSetHero = onSetHero,
+                            onClearRecentlyWatched = onClearRecentlyWatched,
+                            onOpenDonation = onOpenDonation,
+                            onDismissDonationBanner = onDismissDonationBanner
                         )
                     }
                     "search" -> {
@@ -177,7 +256,9 @@ fun RetroMarqueeHeader(
     activeTab: String,
     watchlistCount: Int,
     isWideScreen: Boolean,
-    onTabSelected: (String) -> Unit
+    isSupporter: Boolean = false,
+    onTabSelected: (String) -> Unit,
+    onOpenDonation: () -> Unit = {}
 ) {
     Surface(
         color = CinemaDark,
@@ -280,6 +361,39 @@ fun RetroMarqueeHeader(
                         onClick = { onTabSelected("watchlist") },
                         tag = "nav_watchlist_tab"
                     )
+
+                    if (isSupporter) {
+                        Surface(
+                            color = RetroGold.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, RetroGold),
+                            modifier = Modifier.clickable { onOpenDonation() }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = RetroGold, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("★ Supporter", color = RetroGold, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        IconButton(
+                            onClick = onOpenDonation,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(RetroRuby.copy(alpha = 0.15f), CircleShape)
+                                .testTag("nav_support_header_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VolunteerActivism,
+                                contentDescription = "Support Development",
+                                tint = RetroGold,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 }
             } else {
                 // Compact mobile header quick actions
@@ -287,6 +401,39 @@ fun RetroMarqueeHeader(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    if (isSupporter) {
+                        Surface(
+                            color = RetroGold.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, RetroGold),
+                            modifier = Modifier.clickable { onOpenDonation() }
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = RetroGold, modifier = Modifier.size(13.dp))
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text("★", color = RetroGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    } else {
+                        IconButton(
+                            onClick = onOpenDonation,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(RetroRuby.copy(alpha = 0.15f), CircleShape)
+                                .testTag("nav_support_header_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VolunteerActivism,
+                                contentDescription = "Support Development",
+                                tint = RetroGold,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
                     IconButton(
                         onClick = { onTabSelected("search") },
                         modifier = Modifier
@@ -530,6 +677,12 @@ fun NavPillButton(
     }
 }
 
+private data class CategoryFilterItem(
+    val key: String,
+    val labelRes: Int,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
 @Composable
 fun HomeCatalogView(
     uiState: UiState,
@@ -538,15 +691,48 @@ fun HomeCatalogView(
     onPlay: (CartoonItem) -> Unit,
     onSelectDetail: (CartoonItem) -> Unit,
     onToggleWatchlist: (CartoonItem) -> Unit,
-    onSetHero: (CartoonItem) -> Unit
+    onSetHero: (CartoonItem) -> Unit,
+    onClearRecentlyWatched: () -> Unit = {},
+    onOpenDonation: () -> Unit = {},
+    onDismissDonationBanner: () -> Unit = {}
 ) {
-    val categories = listOf(
-        "ALL" to "All Classics",
-        "SUPERMAN" to "Superman (1941)",
-        "POPEYE" to "Popeye the Sailor",
-        "BETTY" to "Betty Boop",
-        "SERIALS" to "Buster Keaton & Slapstick"
-    )
+    val categories = remember {
+        listOf(
+            CategoryFilterItem("ALL", R.string.category_all, Icons.Default.Movie),
+            CategoryFilterItem("CARTOONS", R.string.category_cartoons, Icons.Default.Tv),
+            CategoryFilterItem("SERIALS", R.string.category_serials, Icons.Default.VideoLibrary),
+            CategoryFilterItem("VINTAGE", R.string.category_vintage, Icons.Default.History),
+            CategoryFilterItem("SUPERMAN", R.string.category_superman, Icons.Default.Bolt),
+            CategoryFilterItem("POPEYE", R.string.category_popeye, Icons.Default.Anchor),
+            CategoryFilterItem("BETTY", R.string.category_betty, Icons.Default.Star)
+        )
+    }
+
+    val vintageList = remember(uiState.featuredList, uiState.supermanList, uiState.popeyeList, uiState.bettyList, uiState.serialsList) {
+        (uiState.featuredList + uiState.supermanList + uiState.popeyeList + uiState.bettyList + uiState.serialsList)
+            .distinctBy { it.id }
+            .filter { item ->
+                val yearNum = item.year.filter { it.isDigit() }.toIntOrNull() ?: 1950
+                yearNum < 1940
+            }
+    }
+
+    val cartoonsList = remember(uiState.supermanList, uiState.popeyeList, uiState.bettyList) {
+        (uiState.supermanList + uiState.popeyeList + uiState.bettyList).distinctBy { it.id }
+    }
+
+    fun getCategoryCount(key: String): Int {
+        return when (key) {
+            "ALL" -> (uiState.featuredList + uiState.supermanList + uiState.popeyeList + uiState.bettyList + uiState.serialsList).distinctBy { it.id }.size
+            "CARTOONS" -> cartoonsList.size
+            "SERIALS" -> uiState.serialsList.size
+            "VINTAGE" -> vintageList.size
+            "SUPERMAN" -> uiState.supermanList.size
+            "POPEYE" -> uiState.popeyeList.size
+            "BETTY" -> uiState.bettyList.size
+            else -> 0
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -554,57 +740,205 @@ fun HomeCatalogView(
             .testTag("catalog_lazy_column"),
         contentPadding = PaddingValues(bottom = 48.dp)
     ) {
-        // Hero Featured Billboard
-        uiState.heroItem?.let { hero ->
+        // Hero Featured Billboard (shown on ALL or when not filtering out hero)
+        if (uiState.categoryFilter == "ALL") {
+            uiState.heroItem?.let { hero ->
+                item {
+                    HeroBillboard(
+                        cartoon = hero,
+                        isWideScreen = isWideScreen,
+                        onPlay = { onPlay(hero) },
+                        onDetails = { onSelectDetail(hero) },
+                        onToggleWatchlist = { onToggleWatchlist(hero) },
+                        featuredOptions = uiState.featuredList.take(5),
+                        onSelectHero = onSetHero
+                    )
+                }
+            }
+        }
+
+        // Home Screen Compact Donation Banner (Triggers after verified satisfaction)
+        if (uiState.showHomeDonationBanner) {
             item {
-                HeroBillboard(
-                    cartoon = hero,
-                    isWideScreen = isWideScreen,
-                    onPlay = { onPlay(hero) },
-                    onDetails = { onSelectDetail(hero) },
-                    onToggleWatchlist = { onToggleWatchlist(hero) },
-                    featuredOptions = uiState.featuredList.take(5),
-                    onSelectHero = onSetHero
+                HomeDonationBanner(
+                    onSupportClick = onOpenDonation,
+                    onDismiss = onDismissDonationBanner,
+                    modifier = Modifier.padding(
+                        horizontal = if (isWideScreen) 28.dp else 16.dp,
+                        vertical = 8.dp
+                    )
                 )
             }
         }
 
-        // Quick Category Filter Bar
+        // Horizontal Category Filter Chips Section
         item {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = if (isWideScreen) 28.dp else 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(vertical = 10.dp)
             ) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(categories) { (key, label) ->
-                        val isSelected = uiState.categoryFilter == key
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("category_filter_chips_row"),
+                    contentPadding = PaddingValues(horizontal = if (isWideScreen) 28.dp else 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(categories) { cat ->
+                        val isSelected = uiState.categoryFilter == cat.key
+                        var isFocused by remember { mutableStateOf(false) }
+                        val count = getCategoryCount(cat.key)
+
                         Surface(
-                            color = if (isSelected) RetroGold else CinemaSurfaceVariant,
-                            contentColor = if (isSelected) CinemaBlack else Color.White,
-                            shape = RoundedCornerShape(16.dp),
+                            color = when {
+                                isSelected -> RetroGold
+                                isFocused -> CinemaDark
+                                else -> CinemaSurfaceVariant
+                            },
+                            contentColor = when {
+                                isSelected -> CinemaBlack
+                                else -> Color.White
+                            },
+                            shape = RoundedCornerShape(20.dp),
                             border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (isSelected) RetroGold else CinemaBorder
+                                width = if (isSelected || isFocused) 1.5.dp else 1.dp,
+                                color = when {
+                                    isSelected -> RetroGold
+                                    isFocused -> Color.White
+                                    else -> CinemaBorder
+                                }
                             ),
+                            tonalElevation = if (isSelected) 4.dp else 0.dp,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable { onCategoryFilterSelected(key) }
+                                .heightIn(min = 40.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .onFocusChanged { isFocused = it.isFocused }
+                                .focusable()
+                                .clickable { onCategoryFilterSelected(cat.key) }
+                                .testTag("category_chip_${cat.key.lowercase()}")
                         ) {
-                            Text(
-                                text = label,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = cat.icon,
+                                    contentDescription = null,
+                                    tint = if (isSelected) CinemaBlack else RetroGold,
+                                    modifier = Modifier.size(16.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                Text(
+                                    text = stringResource(cat.labelRes),
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+
+                                if (count > 0) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        color = if (isSelected) CinemaBlack.copy(alpha = 0.2f) else CinemaBlack.copy(alpha = 0.5f),
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "$count",
+                                            fontSize = 10.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) CinemaBlack else RetroCream,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Active Filter Status & Clear Button (when not ALL)
+                if (uiState.categoryFilter != "ALL") {
+                    val activeCategory = categories.firstOrNull { it.key == uiState.categoryFilter }
+                    if (activeCategory != null) {
+                        Surface(
+                            color = CinemaDark,
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, RetroGold.copy(alpha = 0.35f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = if (isWideScreen) 28.dp else 16.dp, vertical = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
+                                    Icon(
+                                        imageVector = activeCategory.icon,
+                                        contentDescription = null,
+                                        tint = RetroGold,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "${stringResource(R.string.category_filter_label)}: ${stringResource(activeCategory.labelRes)}",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                TextButton(
+                                    onClick = { onCategoryFilterSelected("ALL") },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = RetroGold),
+                                    modifier = Modifier.testTag("clear_filter_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = stringResource(R.string.category_clear_filter),
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Row 1: Featured Popular
+        // Section: Recently Watched / Continue Watching History (from local Room database)
+        if (uiState.recentlyWatchedList.isNotEmpty()) {
+            item {
+                RecentlyWatchedCarouselRow(
+                    items = uiState.recentlyWatchedList,
+                    isWideScreen = isWideScreen,
+                    onPlay = onPlay,
+                    onSelectDetail = onSelectDetail,
+                    onToggleWatchlist = onToggleWatchlist,
+                    onClearHistory = onClearRecentlyWatched
+                )
+            }
+        }
+
+        // Section: Popular Classics (shown on ALL)
         if (uiState.categoryFilter == "ALL" && uiState.featuredList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
@@ -618,8 +952,22 @@ fun HomeCatalogView(
             }
         }
 
-        // Row 2: Fleischer Superman 1941
-        if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "SUPERMAN") && uiState.supermanList.isNotEmpty()) {
+        // Section: Vintage Pre-1940 Treasures (shown on VINTAGE)
+        if (uiState.categoryFilter == "VINTAGE" && vintageList.isNotEmpty()) {
+            item {
+                CartoonCarouselRow(
+                    title = "🕰️ Golden Age Vintage (Pre-1940 Gems)",
+                    items = vintageList,
+                    isWideScreen = isWideScreen,
+                    onPlay = onPlay,
+                    onSelectDetail = onSelectDetail,
+                    onToggleWatchlist = onToggleWatchlist
+                )
+            }
+        }
+
+        // Section: Superman Serials (shown on ALL, CARTOONS, SUPERMAN)
+        if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "CARTOONS" || uiState.categoryFilter == "SUPERMAN") && uiState.supermanList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
                     title = "⚡ Fleischer Superman Animated Serials (1941-1943)",
@@ -632,8 +980,8 @@ fun HomeCatalogView(
             }
         }
 
-        // Row 3: Popeye The Sailor
-        if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "POPEYE") && uiState.popeyeList.isNotEmpty()) {
+        // Section: Popeye The Sailor (shown on ALL, CARTOONS, POPEYE)
+        if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "CARTOONS" || uiState.categoryFilter == "POPEYE") && uiState.popeyeList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
                     title = "⚓ Popeye the Sailor",
@@ -646,8 +994,8 @@ fun HomeCatalogView(
             }
         }
 
-        // Row 4: Betty Boop
-        if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "BETTY") && uiState.bettyList.isNotEmpty()) {
+        // Section: Betty Boop (shown on ALL, CARTOONS, VINTAGE, BETTY)
+        if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "CARTOONS" || uiState.categoryFilter == "VINTAGE" || uiState.categoryFilter == "BETTY") && uiState.bettyList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
                     title = "💃 Betty Boop & Fleischer Jazz Gems",
@@ -660,7 +1008,7 @@ fun HomeCatalogView(
             }
         }
 
-        // Row 5: Buster Keaton & Slapstick Serials
+        // Section: Buster Keaton & Slapstick Serials (shown on ALL, SERIALS, VINTAGE)
         if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "SERIALS") && uiState.serialsList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
@@ -955,6 +1303,97 @@ fun HeroBillboard(
 }
 
 @Composable
+fun RecentlyWatchedCarouselRow(
+    items: List<CartoonItem>,
+    isWideScreen: Boolean,
+    onPlay: (CartoonItem) -> Unit,
+    onSelectDetail: (CartoonItem) -> Unit,
+    onToggleWatchlist: (CartoonItem) -> Unit,
+    onClearHistory: () -> Unit
+) {
+    if (items.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 18.dp, bottom = 4.dp)
+            .testTag("recently_watched_section")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (isWideScreen) 28.dp else 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = RetroGold.copy(alpha = 0.18f),
+                    shape = CircleShape,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.History,
+                            contentDescription = null,
+                            tint = RetroGold,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = stringResource(R.string.recently_watched),
+                        color = Color.White,
+                        fontSize = if (isWideScreen) 18.sp else 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.3.sp
+                    )
+                    Text(
+                        text = stringResource(R.string.continue_watching),
+                        color = RetroGold,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            TextButton(
+                onClick = onClearHistory,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.5f)),
+                modifier = Modifier.testTag("clear_history_button")
+            ) {
+                Text(
+                    text = stringResource(R.string.clear_history),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        val cardWidth = if (isWideScreen) 230.dp else 180.dp
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = if (isWideScreen) 28.dp else 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            items(items, key = { "recent_${it.id}" }) { item ->
+                CartoonPosterCard(
+                    cartoon = item,
+                    isWideScreen = isWideScreen,
+                    onClick = { onSelectDetail(item) },
+                    onPlay = { onPlay(item) },
+                    onToggleWatchlist = { onToggleWatchlist(item) },
+                    modifier = Modifier.width(cardWidth)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun CartoonCarouselRow(
     title: String,
     items: List<CartoonItem>,
@@ -1084,6 +1523,24 @@ fun CartoonPosterCard(
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                    )
+                }
+
+                // Progress Bar overlay along bottom of thumbnail when watch progress exists in Room DB
+                if (cartoon.watchProgressMs > 0) {
+                    val progressFraction = if (cartoon.durationMs > 0) {
+                        (cartoon.watchProgressMs.toFloat() / cartoon.durationMs.toFloat()).coerceIn(0.08f, 1f)
+                    } else {
+                        0.35f
+                    }
+                    LinearProgressIndicator(
+                        progress = { progressFraction },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .align(Alignment.BottomCenter),
+                        color = RetroGold,
+                        trackColor = Color.White.copy(alpha = 0.25f)
                     )
                 }
 

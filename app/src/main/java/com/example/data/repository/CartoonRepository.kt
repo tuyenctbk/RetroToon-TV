@@ -3,19 +3,35 @@ package com.example.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.data.api.ArchiveApiClient
+import com.example.data.local.RecentlyWatchedDao
+import com.example.data.local.RecentlyWatchedEntity
+import com.example.data.local.RetroToonDatabase
 import com.example.data.model.CartoonItem
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
+import com.example.data.local.WatchlistDao
+import com.example.data.local.WatchlistEntity
+
 class CartoonRepository(
     context: Context,
-    private val apiClient: ArchiveApiClient = ArchiveApiClient()
+    private val apiClient: ArchiveApiClient = ArchiveApiClient(),
+    private val recentlyWatchedDao: RecentlyWatchedDao = RetroToonDatabase.getInstance(context).recentlyWatchedDao(),
+    private val watchlistDao: WatchlistDao = RetroToonDatabase.getInstance(context).watchlistDao()
 ) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("retrotoon_prefs", Context.MODE_PRIVATE)
+
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _watchlist = MutableStateFlow<Set<String>>(emptySet())
     val watchlist: StateFlow<Set<String>> = _watchlist.asStateFlow()
@@ -23,11 +39,44 @@ class CartoonRepository(
     private val _watchProgress = MutableStateFlow<Map<String, Long>>(emptyMap())
     val watchProgress: StateFlow<Map<String, Long>> = _watchProgress.asStateFlow()
 
+    // Reactive Watchlist flow directly from Room database
+    val roomWatchlist: Flow<List<CartoonItem>> = combine(
+        watchlistDao.getAllWatchlist(),
+        _watchProgress
+    ) { entities, progress ->
+        entities.map { entity ->
+            entity.toCartoonItem().copy(
+                watchProgressMs = progress[entity.id] ?: entity.watchProgressMs
+            )
+        }
+    }
+
+    // Reactive stream of recently watched items from Room DB enriched with favorite & progress state
+    val recentlyWatched: Flow<List<CartoonItem>> =
+        combine(recentlyWatchedDao.getRecentlyWatched(), _watchlist, _watchProgress) { entities, favs, progress ->
+            entities.map { entity ->
+                entity.toCartoonItem(isFavorite = favs.contains(entity.id)).copy(
+                    watchProgressMs = progress[entity.id] ?: entity.watchProgressMs
+                )
+            }
+        }
+
     // Resolved stream URL cache (id -> direct mp4 url)
     private val streamUrlCache = mutableMapOf<String, String>()
 
     init {
         loadPreferences()
+        syncWatchlistFromRoom()
+    }
+
+    private fun syncWatchlistFromRoom() {
+        repositoryScope.launch {
+            watchlistDao.getAllWatchlistIds().collect { roomIds ->
+                if (roomIds.isNotEmpty()) {
+                    _watchlist.value = roomIds.toSet()
+                }
+            }
+        }
     }
 
     private fun loadPreferences() {
@@ -51,13 +100,24 @@ class CartoonRepository(
 
     fun toggleWatchlist(item: CartoonItem) {
         val current = _watchlist.value.toMutableSet()
-        if (current.contains(item.id)) {
+        val willRemove = current.contains(item.id)
+        if (willRemove) {
             current.remove(item.id)
         } else {
             current.add(item.id)
         }
         _watchlist.value = current
         prefs.edit().putStringSet("favorites_set", current).apply()
+
+        repositoryScope.launch {
+            try {
+                if (willRemove) {
+                    watchlistDao.removeFromWatchlist(item.id)
+                } else {
+                    watchlistDao.insertToWatchlist(WatchlistEntity.fromCartoonItem(item))
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     fun saveWatchProgress(itemId: String, positionMs: Long) {
@@ -70,6 +130,34 @@ class CartoonRepository(
             current.forEach { (k, v) -> obj.put(k, v) }
             prefs.edit().putString("watch_progress_json", obj.toString()).apply()
         } catch (_: Exception) {}
+
+        repositoryScope.launch {
+            try {
+                recentlyWatchedDao.updateProgress(itemId, positionMs)
+            } catch (_: Exception) {}
+        }
+    }
+
+    suspend fun recordRecentlyWatched(
+        item: CartoonItem,
+        progressMs: Long = item.watchProgressMs,
+        durationMs: Long = item.durationMs
+    ) {
+        val currentProgress = _watchProgress.value[item.id] ?: progressMs
+        val entity = RecentlyWatchedEntity.fromCartoonItem(
+            item = item,
+            progressMs = currentProgress,
+            durationMs = durationMs
+        )
+        recentlyWatchedDao.upsertRecent(entity)
+    }
+
+    suspend fun clearRecentlyWatched() {
+        recentlyWatchedDao.clearAllRecent()
+    }
+
+    suspend fun removeRecentlyWatched(id: String) {
+        recentlyWatchedDao.deleteRecent(id)
     }
 
     suspend fun resolveStreamUrl(item: CartoonItem): String {

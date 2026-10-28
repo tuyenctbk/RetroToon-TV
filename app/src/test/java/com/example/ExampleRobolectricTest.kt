@@ -15,6 +15,7 @@ import com.example.ui.engagement.SuggestionDialog
 import com.example.ui.home.HomeScreen
 import com.example.ui.splash.RetroSplashScreen
 import com.example.ui.theme.RetroToonTheme
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -80,6 +81,8 @@ class ExampleRobolectricTest {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val engagement = EngagementManager(context)
 
+    engagement.recordShortCompleted()
+    engagement.recordShortCompleted()
     engagement.recordShortCompleted()
     val promptWhilePlaying = engagement.evaluatePendingSuggestion(isCurrentlyPlaying = true)
     assertNull(promptWhilePlaying)
@@ -177,6 +180,73 @@ class ExampleRobolectricTest {
     }
     assertNotNull(activity.window.decorView)
   }
+
+  @Test
+  fun `verify category filter renders all categories cleanly`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repository = CartoonRepository(context)
+    val curated = repository.getCuratedFeatured()
+
+    val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+    val activity = controller.get()
+
+    listOf("ALL", "CARTOONS", "SERIALS", "VINTAGE", "SUPERMAN", "POPEYE", "BETTY").forEach { category ->
+      var selectedCategory = category
+      activity.setContent {
+        RetroToonTheme {
+          HomeScreen(
+            uiState = UiState(
+              categoryFilter = selectedCategory,
+              heroItem = curated.firstOrNull(),
+              featuredList = curated,
+              supermanList = curated.filter { it.category == "Superman" },
+              popeyeList = curated.filter { it.category == "Popeye" },
+              bettyList = curated.filter { it.category == "Betty Boop" },
+              serialsList = curated.filter { it.category == "Classics" }
+            ),
+            onTabSelected = {},
+            onCategoryFilterSelected = { selectedCategory = it },
+            onPlay = {},
+            onSelectDetail = {},
+            onToggleWatchlist = {},
+            onSetHero = {},
+            onSearchQueryChanged = {}
+          )
+        }
+      }
+      assertNotNull(activity.window.decorView)
+    }
+  }
+
+  @Test
+  fun `verify category strings are present in resources`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    assertEquals("All Classics", context.getString(R.string.category_all))
+    assertEquals("Cartoons", context.getString(R.string.category_cartoons))
+    assertEquals("Serials", context.getString(R.string.category_serials))
+    assertEquals("Vintage", context.getString(R.string.category_vintage))
+    assertEquals("Superman (1941)", context.getString(R.string.category_superman))
+    assertEquals("Popeye the Sailor", context.getString(R.string.category_popeye))
+    assertEquals("Betty Boop", context.getString(R.string.category_betty))
+    assertEquals("Show All", context.getString(R.string.category_clear_filter))
+    assertEquals("Browsing Collection", context.getString(R.string.category_filter_label))
+  }
+
+  @Test
+  fun `verify Room record recently watched and clear recently watched`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repository = CartoonRepository(context)
+    val item = repository.getCuratedFeatured().first()
+
+    repository.recordRecentlyWatched(item, progressMs = 30000L, durationMs = 600000L)
+    val recents = repository.recentlyWatched.first()
+    assertTrue(recents.any { it.id == item.id })
+
+    repository.clearRecentlyWatched()
+    val cleared = repository.recentlyWatched.first()
+    assertTrue(cleared.none { it.id == item.id })
+  }
 }
+
 
 

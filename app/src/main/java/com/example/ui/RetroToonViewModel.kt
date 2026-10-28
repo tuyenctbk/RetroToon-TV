@@ -3,6 +3,7 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.donation.DonationManager
 import com.example.data.engagement.AppSuggestion
 import com.example.data.engagement.EngagementManager
 import com.example.data.model.CartoonItem
@@ -52,13 +53,19 @@ data class UiState(
     val isLoading: Boolean = false,
     val filmEffect: FilmEffect = FilmEffect.CLEAN,
     val aspectMode: AspectMode = AspectMode.ORIGINAL,
-    val activeSuggestion: AppSuggestion? = null
+    val activeSuggestion: AppSuggestion? = null,
+    val isSupporter: Boolean = false,
+    val supporterTier: String? = null,
+    val showHomeDonationBanner: Boolean = false,
+    val showDonationDialog: Boolean = false,
+    val recentlyWatchedList: List<CartoonItem> = emptyList()
 )
 
 class RetroToonViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = CartoonRepository(application.applicationContext)
     private val engagementManager = EngagementManager(application.applicationContext)
+    val donationManager = DonationManager(application.applicationContext)
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -67,8 +74,11 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         engagementManager.recordAppLaunch()
+        donationManager.recordAppLaunch()
+        updateSupporterAndBannerState()
         loadInitialCatalog()
         observeWatchlist()
+        observeRecentlyWatched()
     }
 
     private fun loadInitialCatalog() {
@@ -107,7 +117,7 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun observeWatchlist() {
         viewModelScope.launch {
-            repository.watchlist.collect { ids ->
+            kotlinx.coroutines.flow.combine(repository.watchlist, repository.roomWatchlist) { ids, roomItems ->
                 val allKnown = (_uiState.value.featuredList +
                         _uiState.value.supermanList +
                         _uiState.value.popeyeList +
@@ -115,10 +125,11 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
                         _uiState.value.serialsList +
                         _uiState.value.searchResults).distinctBy { it.id }
 
-                val favItems = allKnown.filter { ids.contains(it.id) }.map { it.copy(isFavorite = true) }
+                val favFromKnown = allKnown.filter { ids.contains(it.id) }.map { it.copy(isFavorite = true) }
+                val combinedWatchlist = (roomItems + favFromKnown).distinctBy { it.id }
 
                 _uiState.value = _uiState.value.copy(
-                    watchlistItems = favItems,
+                    watchlistItems = combinedWatchlist,
                     featuredList = repository.enrichWithUserData(_uiState.value.featuredList),
                     supermanList = repository.enrichWithUserData(_uiState.value.supermanList),
                     popeyeList = repository.enrichWithUserData(_uiState.value.popeyeList),
@@ -128,6 +139,14 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
                         it.copy(isFavorite = ids.contains(it.id))
                     }
                 )
+            }.collect {}
+        }
+    }
+
+    private fun observeRecentlyWatched() {
+        viewModelScope.launch {
+            repository.recentlyWatched.collect { recents ->
+                _uiState.value = _uiState.value.copy(recentlyWatchedList = recents)
             }
         }
     }
@@ -166,6 +185,8 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
         repository.toggleWatchlist(item)
         if (willBeAdded) {
             engagementManager.recordWatchlistAdd()
+            donationManager.recordSuccessfulOperation()
+            updateSupporterAndBannerState()
             viewModelScope.launch {
                 delay(600)
                 checkSuggestions()
@@ -190,6 +211,11 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
         )
 
         viewModelScope.launch {
+            // Track in local Room database
+            try {
+                repository.recordRecentlyWatched(item)
+            } catch (_: Exception) {}
+
             val candidates = repository.resolveAllStreamUrls(item)
             val primaryUrl = candidates.firstOrNull() ?: item.getResolvedStreamUrl()
             _uiState.value = _uiState.value.copy(
@@ -197,6 +223,18 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
                 resolvedStreamUrl = primaryUrl,
                 isResolvingStream = false
             )
+        }
+    }
+
+    fun clearRecentlyWatched() {
+        viewModelScope.launch {
+            repository.clearRecentlyWatched()
+        }
+    }
+
+    fun removeRecentlyWatched(id: String) {
+        viewModelScope.launch {
+            repository.removeRecentlyWatched(id)
         }
     }
 
@@ -228,9 +266,16 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
 
         if (previousPlaying != null) {
             engagementManager.recordShortCompleted()
-            viewModelScope.launch {
-                delay(800) // Graceful pause before offering milestone suggestion
-                checkSuggestions()
+            donationManager.recordSuccessfulOperation()
+            updateSupporterAndBannerState()
+
+            if (donationManager.shouldTriggerAutoPrompt()) {
+                _uiState.value = _uiState.value.copy(showDonationDialog = true)
+            } else {
+                viewModelScope.launch {
+                    delay(800) // Graceful pause before offering milestone suggestion
+                    checkSuggestions()
+                }
             }
         }
     }
@@ -313,5 +358,34 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun dismissSuggestion() {
         _uiState.value = _uiState.value.copy(activeSuggestion = null)
+    }
+
+    // Donation methods
+    fun updateSupporterAndBannerState() {
+        _uiState.value = _uiState.value.copy(
+            isSupporter = donationManager.isSupporter,
+            supporterTier = donationManager.supporterTier,
+            showHomeDonationBanner = donationManager.shouldShowHomeBanner()
+        )
+    }
+
+    fun openDonationDialog() {
+        _uiState.value = _uiState.value.copy(showDonationDialog = true)
+    }
+
+    fun closeDonationDialog() {
+        _uiState.value = _uiState.value.copy(showDonationDialog = false)
+        donationManager.dismissAutoPrompt()
+        updateSupporterAndBannerState()
+    }
+
+    fun dismissHomeDonationBanner() {
+        donationManager.dismissHomeBanner()
+        _uiState.value = _uiState.value.copy(showHomeDonationBanner = false)
+    }
+
+    fun onSupporterStatusUpdated(tier: String) {
+        donationManager.markAsSupporter(tier)
+        updateSupporterAndBannerState()
     }
 }

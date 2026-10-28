@@ -83,6 +83,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -122,6 +123,7 @@ fun RetroPlayerScreen(
     onEnterPip: () -> Unit,
     onRetryStream: () -> Unit,
     onToggleOrientation: () -> Unit,
+    onOpenDonation: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -564,6 +566,24 @@ fun RetroPlayerScreen(
                             Text("Replay")
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Surface(
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenDonation() }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text("☕ Enjoyed this classic short? ", color = Color.White.copy(alpha = 0.8f), fontSize = 11.5.sp)
+                            Text("Buy dev a coffee", color = RetroGold, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                        }
+                    }
                 }
             }
         }
@@ -642,15 +662,19 @@ fun RetroPlayerScreen(
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = "${cartoon.year} • ${cartoon.creator}",
                                 color = Color.White.copy(alpha = 0.7f),
-                                fontSize = 11.sp
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Surface(
                                 color = RetroRuby,
                                 shape = RoundedCornerShape(4.dp)
@@ -660,6 +684,8 @@ fun RetroPlayerScreen(
                                     color = Color.White,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    softWrap = false,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                 )
                             }

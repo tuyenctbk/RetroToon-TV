@@ -28,6 +28,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.example.ui.RetroToonViewModel
 import com.example.ui.detail.CartoonDetailDialog
+import com.example.ui.donation.DonationDialog
 import com.example.ui.engagement.SuggestionDialog
 import com.example.ui.home.HomeScreen
 import com.example.ui.player.RetroPlayerScreen
@@ -124,6 +125,7 @@ fun RetroToonApp(
                         onEnterPip = onEnterPip,
                         onRetryStream = { viewModel.retryStreamWithAlternative() },
                         onToggleOrientation = onToggleOrientation,
+                        onOpenDonation = { viewModel.openDonationDialog() },
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -140,6 +142,9 @@ fun RetroToonApp(
                             onToggleWatchlist = { viewModel.toggleWatchlist(it) },
                             onSetHero = { viewModel.setHero(it) },
                             onSearchQueryChanged = { viewModel.onSearchQueryChanged(it) },
+                            onClearRecentlyWatched = { viewModel.clearRecentlyWatched() },
+                            onOpenDonation = { viewModel.openDonationDialog() },
+                            onDismissDonationBanner = { viewModel.dismissHomeDonationBanner() },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -157,8 +162,18 @@ fun RetroToonApp(
                     }
                 }
 
+                // Donation Dialog (Google Play In-App, PayPal & QR, Ko-fi)
+                if (uiState.showDonationDialog) {
+                    DonationDialog(
+                        donationManager = viewModel.donationManager,
+                        isSupporter = uiState.isSupporter,
+                        onSupporterStatusUpdated = { viewModel.onSupporterStatusUpdated(it) },
+                        onDismiss = { viewModel.closeDonationDialog() }
+                    )
+                }
+
                 // Smart Suggestion Dialog (Rate / Share / Update)
-                if (uiState.playingItem == null && uiState.selectedDetailItem == null) {
+                if (uiState.playingItem == null && uiState.selectedDetailItem == null && !uiState.showDonationDialog) {
                     uiState.activeSuggestion?.let { suggestion ->
                         SuggestionDialog(
                             suggestion = suggestion,

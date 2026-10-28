@@ -185,6 +185,8 @@ fun CartoonDetailDialog(
                                 color = RetroRuby,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
                         }
@@ -198,6 +200,8 @@ fun CartoonDetailDialog(
                                 color = Color.White.copy(alpha = 0.8f),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
                         }
