@@ -17,6 +17,14 @@ interface RecentlyWatchedDao {
     @Query("UPDATE recently_watched SET watchProgressMs = :progressMs, lastWatchedTimestamp = :timestamp WHERE id = :id")
     suspend fun updateProgress(id: String, progressMs: Long, timestamp: Long = System.currentTimeMillis())
 
+    @Query("UPDATE recently_watched SET watchProgressMs = :progressMs, durationMs = CASE WHEN :durationMs > 0 THEN :durationMs ELSE durationMs END, lastWatchedTimestamp = :timestamp WHERE id = :id")
+    suspend fun updateProgressAndDuration(
+        id: String,
+        progressMs: Long,
+        durationMs: Long,
+        timestamp: Long = System.currentTimeMillis()
+    )
+
     @Query("SELECT * FROM recently_watched WHERE id = :id LIMIT 1")
     suspend fun getRecentById(id: String): RecentlyWatchedEntity?
 

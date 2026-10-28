@@ -8,8 +8,14 @@ import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -110,6 +116,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun RetroPlayerScreen(
     cartoon: CartoonItem,
+    upNextCartoon: CartoonItem? = null,
     streamUrl: String?,
     isResolving: Boolean,
     isInPipMode: Boolean,
@@ -119,7 +126,7 @@ fun RetroPlayerScreen(
     onPlayNext: () -> Unit,
     onEffectChange: (FilmEffect) -> Unit,
     onAspectChange: (AspectMode) -> Unit,
-    onSaveProgress: (String, Long) -> Unit,
+    onSaveProgress: (String, Long, Long) -> Unit,
     onEnterPip: () -> Unit,
     onRetryStream: () -> Unit,
     onToggleOrientation: () -> Unit,
@@ -129,16 +136,23 @@ fun RetroPlayerScreen(
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
 
+    LaunchedEffect(Unit) {
+        try {
+            focusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
     BackHandler(enabled = !isInPipMode) {
         onClose()
     }
 
     var isPlaying by remember { mutableStateOf(true) }
     var currentPositionMs by remember { mutableLongStateOf(cartoon.watchProgressMs) }
-    var durationMs by remember { mutableLongStateOf(0L) }
+    var durationMs by remember { mutableLongStateOf(cartoon.durationMs) }
     var isBuffering by remember { mutableStateOf(true) }
     var isEnded by remember { mutableStateOf(false) }
     var playbackError by remember { mutableStateOf<String?>(null) }
+    var hasAutoRetried by remember(cartoon.id) { mutableStateOf(false) }
     var areControlsVisible by remember { mutableStateOf(true) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var isUserSeeking by remember { mutableStateOf(false) }
@@ -179,6 +193,15 @@ fun RetroPlayerScreen(
         }
     }
 
+    // Automatic backup stream failover on mirror error
+    LaunchedEffect(playbackError) {
+        if (playbackError != null && !hasAutoRetried) {
+            hasAutoRetried = true
+            delay(1200)
+            onRetryStream()
+        }
+    }
+
     // Player events listener
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
@@ -188,9 +211,13 @@ fun RetroPlayerScreen(
                     durationMs = exoPlayer.duration.coerceAtLeast(0L)
                     playbackError = null
                     isEnded = false
+                    if (durationMs > 0L) {
+                        onSaveProgress(cartoon.id, exoPlayer.currentPosition.coerceAtLeast(0L), durationMs)
+                    }
                 } else if (state == Player.STATE_ENDED) {
                     isEnded = true
                     marathonCountdown = 5
+                    onSaveProgress(cartoon.id, 0L, durationMs)
                 }
             }
 
@@ -208,8 +235,9 @@ fun RetroPlayerScreen(
         onDispose {
             exoPlayer.removeListener(listener)
             val currentPos = exoPlayer.currentPosition
-            if (currentPos > 0) {
-                onSaveProgress(cartoon.id, currentPos)
+            val totalDur = exoPlayer.duration.coerceAtLeast(durationMs)
+            if (currentPos > 0 && !isEnded) {
+                onSaveProgress(cartoon.id, currentPos, totalDur)
             }
             exoPlayer.release()
         }
@@ -220,9 +248,9 @@ fun RetroPlayerScreen(
         while (true) {
             if (isPlaying && !isUserSeeking) {
                 currentPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
-                durationMs = exoPlayer.duration.coerceAtLeast(0L)
+                durationMs = exoPlayer.duration.coerceAtLeast(durationMs)
                 if (currentPositionMs > 0 && currentPositionMs % 5000L < 1000L) {
-                    onSaveProgress(cartoon.id, currentPositionMs)
+                    onSaveProgress(cartoon.id, currentPositionMs, durationMs)
                 }
             }
             delay(500)
@@ -265,16 +293,38 @@ fun RetroPlayerScreen(
     }
 
     val resizeMode = when (aspectMode) {
-        AspectMode.ORIGINAL -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        AspectMode.ORIGINAL -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
         AspectMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
         AspectMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     }
+
+    // Animated projector grain & flicker for vintage film effects
+    val filmInfinite = rememberInfiniteTransition(label = "film_shader_transition")
+    val grainPhase by filmInfinite.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(350, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "grain_phase"
+    )
+    val projectorFlicker by filmInfinite.animateFloat(
+        initialValue = 0.90f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(95, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "projector_flicker"
+    )
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(CinemaBlack)
             .focusRequester(focusRequester)
+            .focusable()
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                     when (keyEvent.nativeKeyEvent.keyCode) {
@@ -333,8 +383,12 @@ fun RetroPlayerScreen(
                                 currentPositionMs = newPos
                                 showForwardGesture = true
                             } else {
-                                // Double tap center: Toggle aspect ratio
-                                val nextMode = if (aspectMode == AspectMode.ORIGINAL) AspectMode.FILL else AspectMode.ORIGINAL
+                                // Double tap center: Cycle aspect ratio
+                                val nextMode = when (aspectMode) {
+                                    AspectMode.ORIGINAL -> AspectMode.FIT
+                                    AspectMode.FIT -> AspectMode.FILL
+                                    AspectMode.FILL -> AspectMode.ORIGINAL
+                                }
                                 onAspectChange(nextMode)
                             }
                             lastInteractionTime = System.currentTimeMillis()
@@ -367,7 +421,7 @@ fun RetroPlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Film Effect Shaders
+        // Film Effect Shaders (1930s Sepia Reel, Silver-Screen B&W, Retro CRT)
         if (!isInPipMode) {
             when (filmEffect) {
                 FilmEffect.CLEAN -> { /* Clean stream */ }
@@ -375,14 +429,29 @@ fun RetroPlayerScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0x35825220))
+                            .background(Color(0x338B5A2B).copy(alpha = 0.22f * projectorFlicker))
                             .drawBehind {
                                 val gradient = Brush.radialGradient(
-                                    colors = listOf(Color.Transparent, Color(0x60000000)),
-                                    center = Offset(size.width / 2, size.height / 2),
-                                    radius = size.maxDimension * 0.7f
+                                    colors = listOf(Color.Transparent, Color(0x701A0F05)),
+                                    center = Offset(size.width / 2f, size.height / 2f),
+                                    radius = size.maxDimension * 0.68f
                                 )
                                 drawRect(gradient)
+                                // Animated 1930s vertical projector scratch lines
+                                val scratchX1 = size.width * ((0.22f + grainPhase * 0.53f) % 0.88f + 0.06f)
+                                val scratchX2 = size.width * ((0.78f - grainPhase * 0.37f + 1f) % 0.88f + 0.06f)
+                                drawLine(
+                                    color = RetroCream.copy(alpha = 0.14f * projectorFlicker),
+                                    start = Offset(scratchX1, 0f),
+                                    end = Offset(scratchX1, size.height),
+                                    strokeWidth = 1.2f
+                                )
+                                drawLine(
+                                    color = Color.Black.copy(alpha = 0.18f),
+                                    start = Offset(scratchX2, 0f),
+                                    end = Offset(scratchX2, size.height),
+                                    strokeWidth = 1f
+                                )
                             }
                     )
                 }
@@ -390,9 +459,24 @@ fun RetroPlayerScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0x40101015))
+                            .background(Color(0x28181A20))
                             .drawBehind {
-                                drawRect(Color(0x20000000))
+                                val vignette = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0x10E0E5F0).copy(alpha = 0.08f * projectorFlicker),
+                                        Color(0x88050608)
+                                    ),
+                                    center = Offset(size.width / 2f, size.height / 2f),
+                                    radius = size.maxDimension * 0.66f
+                                )
+                                drawRect(vignette)
+                                val scratchX = size.width * ((0.41f + grainPhase * 0.29f) % 0.85f + 0.07f)
+                                drawLine(
+                                    color = Color.White.copy(alpha = 0.12f * projectorFlicker),
+                                    start = Offset(scratchX, 0f),
+                                    end = Offset(scratchX, size.height),
+                                    strokeWidth = 1f
+                                )
                             }
                     )
                 }
@@ -401,19 +485,29 @@ fun RetroPlayerScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .drawBehind {
-                                val scanlineColor = Color(0x15000000)
-                                var y = 0f
+                                val scanlineColor = Color(0x22000000)
+                                var y = (grainPhase * 4f) % 4f
                                 while (y < size.height) {
                                     drawLine(
                                         color = scanlineColor,
                                         start = Offset(0f, y),
                                         end = Offset(size.width, y),
-                                        strokeWidth = 2f
+                                        strokeWidth = 1.8f
                                     )
                                     y += 4f
                                 }
+                                val crtVignette = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color(0x35000000),
+                                        Color(0x88000000)
+                                    ),
+                                    center = Offset(size.width / 2f, size.height / 2f),
+                                    radius = size.maxDimension * 0.64f
+                                )
+                                drawRect(crtVignette)
                             }
-                            .border(12.dp, Color(0x90000000))
+                            .border(8.dp, Color(0xAA08070C), RoundedCornerShape(16.dp))
                     )
                 }
             }
@@ -544,6 +638,17 @@ fun RetroPlayerScreen(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
+                    upNextCartoon?.let { nextUp ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "${nextUp.title} (${nextUp.year})",
+                            color = RetroCream.copy(alpha = 0.85f),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(
@@ -746,9 +851,9 @@ fun RetroPlayerScreen(
                         TvFocusableIconButton(
                             onClick = {
                                 val nextMode = when (aspectMode) {
-                                    AspectMode.ORIGINAL -> AspectMode.FILL
+                                    AspectMode.ORIGINAL -> AspectMode.FIT
+                                    AspectMode.FIT -> AspectMode.FILL
                                     AspectMode.FILL -> AspectMode.ORIGINAL
-                                    else -> AspectMode.ORIGINAL
                                 }
                                 onAspectChange(nextMode)
                                 lastInteractionTime = System.currentTimeMillis()

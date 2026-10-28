@@ -5,19 +5,28 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Deep Theater Velvet Gradient -->
     <path android:pathData="M0,0h108v108h-108z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:angle="315"
-                android:endColor="#0B0914"
-                android:startColor="#251B40"
+                android:startColor="#281B44"
+                android:centerColor="#141024"
+                android:endColor="#0A0910"
                 android:type="linear" />
         </aapt:attr>
     </path>
-    <!-- Vintage film grain / subtle retro lines -->
+    <!-- Warm Golden Stage Spotlight Halo -->
+    <path
+        android:fillColor="#24FFC857"
+        android:pathData="M54,56 m-34,0 a34,34 0 1,0 68,0 a34,34 0 1,0 -68,0" />
+    <path
+        android:fillColor="#16E63946"
+        android:pathData="M54,56 m-26,0 a26,26 0 1,0 52,0 a26,26 0 1,0 -52,0" />
+    <!-- Subtle Art Deco Marquee Frame -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#18FFFFFF"
-        android:strokeWidth="0.5"
-        android:pathData="M14,14h80v80h-80z" />
+        android:strokeColor="#26FFC857"
+        android:strokeWidth="0.8"
+        android:pathData="M16,16h76v76h-76z" />
 </vector>

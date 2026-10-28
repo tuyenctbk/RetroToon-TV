@@ -39,24 +39,30 @@ class CartoonRepository(
     private val _watchProgress = MutableStateFlow<Map<String, Long>>(emptyMap())
     val watchProgress: StateFlow<Map<String, Long>> = _watchProgress.asStateFlow()
 
+    private val _watchDuration = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val watchDuration: StateFlow<Map<String, Long>> = _watchDuration.asStateFlow()
+
     // Reactive Watchlist flow directly from Room database
     val roomWatchlist: Flow<List<CartoonItem>> = combine(
         watchlistDao.getAllWatchlist(),
-        _watchProgress
-    ) { entities, progress ->
+        _watchProgress,
+        _watchDuration
+    ) { entities, progress, durations ->
         entities.map { entity ->
             entity.toCartoonItem().copy(
-                watchProgressMs = progress[entity.id] ?: entity.watchProgressMs
+                watchProgressMs = progress[entity.id] ?: entity.watchProgressMs,
+                durationMs = durations[entity.id] ?: entity.durationMs
             )
         }
     }
 
     // Reactive stream of recently watched items from Room DB enriched with favorite & progress state
     val recentlyWatched: Flow<List<CartoonItem>> =
-        combine(recentlyWatchedDao.getRecentlyWatched(), _watchlist, _watchProgress) { entities, favs, progress ->
+        combine(recentlyWatchedDao.getRecentlyWatched(), _watchlist, _watchProgress, _watchDuration) { entities, favs, progress, durations ->
             entities.map { entity ->
                 entity.toCartoonItem(isFavorite = favs.contains(entity.id)).copy(
-                    watchProgressMs = progress[entity.id] ?: entity.watchProgressMs
+                    watchProgressMs = progress[entity.id] ?: entity.watchProgressMs,
+                    durationMs = durations[entity.id] ?: entity.durationMs
                 )
             }
         }
@@ -96,6 +102,20 @@ class CartoonRepository(
         } catch (e: Exception) {
             _watchProgress.value = emptyMap()
         }
+
+        val durationJson = prefs.getString("watch_duration_json", "{}") ?: "{}"
+        try {
+            val obj = JSONObject(durationJson)
+            val map = mutableMapOf<String, Long>()
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                map[k] = obj.optLong(k, 0L)
+            }
+            _watchDuration.value = map
+        } catch (e: Exception) {
+            _watchDuration.value = emptyMap()
+        }
     }
 
     fun toggleWatchlist(item: CartoonItem) {
@@ -120,10 +140,22 @@ class CartoonRepository(
         }
     }
 
-    fun saveWatchProgress(itemId: String, positionMs: Long) {
+    fun saveWatchProgress(itemId: String, positionMs: Long, durationMs: Long = 0L) {
+        val effectivePos = if (durationMs > 5000L && positionMs >= durationMs - 2500L) 0L else positionMs.coerceAtLeast(0L)
         val current = _watchProgress.value.toMutableMap()
-        current[itemId] = positionMs
+        current[itemId] = effectivePos
         _watchProgress.value = current
+
+        if (durationMs > 0L) {
+            val durMap = _watchDuration.value.toMutableMap()
+            durMap[itemId] = durationMs
+            _watchDuration.value = durMap
+            try {
+                val durObj = JSONObject()
+                durMap.forEach { (k, v) -> durObj.put(k, v) }
+                prefs.edit().putString("watch_duration_json", durObj.toString()).apply()
+            } catch (_: Exception) {}
+        }
 
         try {
             val obj = JSONObject()
@@ -133,7 +165,11 @@ class CartoonRepository(
 
         repositoryScope.launch {
             try {
-                recentlyWatchedDao.updateProgress(itemId, positionMs)
+                if (durationMs > 0L) {
+                    recentlyWatchedDao.updateProgressAndDuration(itemId, effectivePos, durationMs)
+                } else {
+                    recentlyWatchedDao.updateProgress(itemId, effectivePos)
+                }
             } catch (_: Exception) {}
         }
     }
@@ -144,10 +180,11 @@ class CartoonRepository(
         durationMs: Long = item.durationMs
     ) {
         val currentProgress = _watchProgress.value[item.id] ?: progressMs
+        val currentDuration = _watchDuration.value[item.id] ?: durationMs
         val entity = RecentlyWatchedEntity.fromCartoonItem(
             item = item,
             progressMs = currentProgress,
-            durationMs = durationMs
+            durationMs = currentDuration
         )
         recentlyWatchedDao.upsertRecent(entity)
     }
@@ -198,10 +235,8 @@ class CartoonRepository(
     suspend fun fetchCategory(categoryTag: String, fallbackItems: List<CartoonItem>): List<CartoonItem> {
         val remoteItems = apiClient.searchCartoons(categoryTag, rows = 25)
         val combined = if (remoteItems.isNotEmpty()) {
-            // Combine with curated items to ensure top titles always appear first
-            val remoteIds = remoteItems.map { it.id }.toSet()
-            val curatedFiltered = fallbackItems.filter { !remoteIds.contains(it.id) }
-            fallbackItems + remoteItems
+            // Combine with curated items to ensure top titles always appear first without duplicates
+            (fallbackItems + remoteItems).distinctBy { it.id }
         } else {
             fallbackItems
         }
@@ -211,10 +246,12 @@ class CartoonRepository(
     fun enrichWithUserData(items: List<CartoonItem>): List<CartoonItem> {
         val favs = _watchlist.value
         val progress = _watchProgress.value
+        val durations = _watchDuration.value
         return items.map { item ->
             item.copy(
                 isFavorite = favs.contains(item.id),
-                watchProgressMs = progress[item.id] ?: 0L
+                watchProgressMs = progress[item.id] ?: item.watchProgressMs,
+                durationMs = durations[item.id] ?: item.durationMs
             )
         }
     }

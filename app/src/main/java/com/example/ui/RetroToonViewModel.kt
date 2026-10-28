@@ -42,6 +42,7 @@ data class UiState(
     val watchlistItems: List<CartoonItem> = emptyList(),
     val selectedDetailItem: CartoonItem? = null,
     val playingItem: CartoonItem? = null,
+    val upNextItem: CartoonItem? = null,
     val resolvedStreamUrl: String? = null,
     val candidateStreamUrls: List<String> = emptyList(),
     val activeStreamIndex: Int = 0,
@@ -117,7 +118,12 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun observeWatchlist() {
         viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(repository.watchlist, repository.roomWatchlist) { ids, roomItems ->
+            kotlinx.coroutines.flow.combine(
+                repository.watchlist,
+                repository.roomWatchlist,
+                repository.watchProgress,
+                repository.watchDuration
+            ) { ids, roomItems, progressMap, durationMap ->
                 val allKnown = (_uiState.value.featuredList +
                         _uiState.value.supermanList +
                         _uiState.value.popeyeList +
@@ -125,7 +131,13 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
                         _uiState.value.serialsList +
                         _uiState.value.searchResults).distinctBy { it.id }
 
-                val favFromKnown = allKnown.filter { ids.contains(it.id) }.map { it.copy(isFavorite = true) }
+                val favFromKnown = allKnown.filter { ids.contains(it.id) }.map {
+                    it.copy(
+                        isFavorite = true,
+                        watchProgressMs = progressMap[it.id] ?: it.watchProgressMs,
+                        durationMs = durationMap[it.id] ?: it.durationMs
+                    )
+                }
                 val combinedWatchlist = (roomItems + favFromKnown).distinctBy { it.id }
 
                 _uiState.value = _uiState.value.copy(
@@ -135,8 +147,20 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
                     popeyeList = repository.enrichWithUserData(_uiState.value.popeyeList),
                     bettyList = repository.enrichWithUserData(_uiState.value.bettyList),
                     serialsList = repository.enrichWithUserData(_uiState.value.serialsList),
+                    searchResults = repository.enrichWithUserData(_uiState.value.searchResults),
                     heroItem = _uiState.value.heroItem?.let {
-                        it.copy(isFavorite = ids.contains(it.id))
+                        it.copy(
+                            isFavorite = ids.contains(it.id),
+                            watchProgressMs = progressMap[it.id] ?: it.watchProgressMs,
+                            durationMs = durationMap[it.id] ?: it.durationMs
+                        )
+                    },
+                    selectedDetailItem = _uiState.value.selectedDetailItem?.let {
+                        it.copy(
+                            isFavorite = ids.contains(it.id),
+                            watchProgressMs = progressMap[it.id] ?: it.watchProgressMs,
+                            durationMs = durationMap[it.id] ?: it.durationMs
+                        )
                     }
                 )
             }.collect {}
@@ -194,13 +218,38 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun saveProgress(itemId: String, positionMs: Long) {
-        repository.saveWatchProgress(itemId, positionMs)
+    fun saveProgress(itemId: String, positionMs: Long, durationMs: Long = 0L) {
+        repository.saveWatchProgress(itemId, positionMs, durationMs)
+    }
+
+    private fun resolveUpNextFor(item: CartoonItem): CartoonItem? {
+        val state = _uiState.value
+        val candidateLists = listOf(
+            state.supermanList,
+            state.popeyeList,
+            state.bettyList,
+            state.serialsList,
+            state.watchlistItems,
+            state.searchResults,
+            state.featuredList
+        )
+        val matchingList = candidateLists.firstOrNull { list -> list.size > 1 && list.any { it.id == item.id } }
+            ?: (state.featuredList + state.supermanList + state.popeyeList + state.bettyList + state.serialsList).distinctBy { it.id }
+
+        if (matchingList.isEmpty()) return null
+        val idx = matchingList.indexOfFirst { it.id == item.id }
+        return if (idx in 0 until matchingList.size - 1) {
+            matchingList[idx + 1]
+        } else {
+            matchingList.firstOrNull { it.id != item.id } ?: matchingList.firstOrNull()
+        }
     }
 
     fun playItem(item: CartoonItem) {
+        val nextUp = resolveUpNextFor(item)
         _uiState.value = _uiState.value.copy(
             playingItem = item,
+            upNextItem = nextUp,
             selectedDetailItem = null,
             activeSuggestion = null, // Close any suggestion during playback
             isResolvingStream = true,
@@ -258,6 +307,7 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
         val previousPlaying = _uiState.value.playingItem
         _uiState.value = _uiState.value.copy(
             playingItem = null,
+            upNextItem = null,
             resolvedStreamUrl = null,
             candidateStreamUrls = emptyList(),
             isResolvingStream = false,
@@ -282,12 +332,9 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun playNext() {
         val current = _uiState.value.playingItem ?: return
-        val list = _uiState.value.featuredList
-        val idx = list.indexOfFirst { it.id == current.id }
-        if (idx in 0 until list.size - 1) {
-            playItem(list[idx + 1])
-        } else if (list.isNotEmpty()) {
-            playItem(list.first())
+        val nextItem = _uiState.value.upNextItem ?: resolveUpNextFor(current)
+        if (nextItem != null) {
+            playItem(nextItem)
         }
     }
 

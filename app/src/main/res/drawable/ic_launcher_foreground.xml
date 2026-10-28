@@ -4,110 +4,142 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Antenna -->
+    <!-- V-Dipole Rabbit-Ear Antennas -->
     <path
         android:strokeColor="#FFC857"
-        android:strokeWidth="2.5"
+        android:strokeWidth="2.8"
         android:strokeLineCap="round"
-        android:pathData="M54,39 L40,25" />
+        android:pathData="M54,38 L39,23" />
     <path
         android:strokeColor="#FFC857"
-        android:strokeWidth="2.5"
+        android:strokeWidth="2.8"
         android:strokeLineCap="round"
-        android:pathData="M54,39 L68,25" />
+        android:pathData="M54,38 L69,23" />
+    <!-- Antenna Base Mount -->
     <path
         android:fillColor="#FFC857"
-        android:pathData="M38,25 A2.5,2.5 0 1,0 42,25 A2.5,2.5 0 1,0 38,25" />
+        android:pathData="M48,38 C48,35.2 60,35.2 60,38 Z" />
+    <!-- Antenna Tips -->
     <path
-        android:fillColor="#FFC857"
-        android:pathData="M66,25 A2.5,2.5 0 1,0 70,25 A2.5,2.5 0 1,0 66,25" />
+        android:fillColor="#FFD97D"
+        android:pathData="M39,23 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
+    <path
+        android:fillColor="#FFD97D"
+        android:pathData="M69,23 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
 
-    <!-- TV Legs -->
+    <!-- Symmetric Mid-Century Wooden TV Legs -->
     <path
-        android:strokeColor="#8A5A36"
-        android:strokeWidth="3"
+        android:strokeColor="#9C643B"
+        android:strokeWidth="3.5"
         android:strokeLineCap="round"
-        android:pathData="M34,81 L30,88" />
+        android:pathData="M36,79 L31,86" />
     <path
-        android:strokeColor="#8A5A36"
-        android:strokeWidth="3"
+        android:strokeColor="#9C643B"
+        android:strokeWidth="3.5"
         android:strokeLineCap="round"
-        android:pathData="M74,81 L78,88" />
+        android:pathData="M72,79 L77,86" />
 
-    <!-- Retro TV Cabinet -->
+    <!-- Retro TV Cabinet Drop Shadow -->
+    <path
+        android:fillColor="#55000000"
+        android:pathData="M33,40 h44 c4.4,0 8,3.6 8,8 v26 c0,4.4 -3.6,8 -8,8 h-44 c-4.4,0 -8,-3.6 -8,-8 v-26 c0,-4.4 3.6,-8 8,-8 z" />
+
+    <!-- Retro TV Ruby Cabinet (Centered X: 24..84, Y: 38..80) -->
     <path
         android:fillColor="#E63946"
         android:strokeColor="#9B1D20"
-        android:strokeWidth="1.5"
-        android:pathData="M33,39 h42 c4.4,0 8,3.6 8,8 v26 c0,4.4 -3.6,8 -8,8 h-42 c-4.4,0 -8,-3.6 -8,-8 v-26 c0,-4.4 3.6,-8 8,-8 z" />
+        android:strokeWidth="1.6"
+        android:pathData="M32,38 h44 c4.4,0 8,3.6 8,8 v26 c0,4.4 -3.6,8 -8,8 h-44 c-4.4,0 -8,-3.6 -8,-8 v-26 c0,-4.4 3.6,-8 8,-8 z" />
+
+    <!-- Top Cabinet Highlight Bevel -->
+    <path
+        android:strokeColor="#55FFFFFF"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M32,40 h44" />
 
     <!-- TV CRT Screen Bezel -->
     <path
-        android:fillColor="#1D1D2C"
-        android:pathData="M31,43 h35 c2.5,0 4.5,2 4.5,4.5 v25 c0,2.5 -2,4.5 -4.5,4.5 h-35 c-2.5,0 -4.5,-2 -4.5,-4.5 v-25 c0,-2.5 2,-4.5 4.5,-4.5 z" />
+        android:fillColor="#181624"
+        android:pathData="M32.5,42 h33 c2.8,0 5,2.2 5,5 v24 c0,2.8 -2.2,5 -5,5 h-33 c-2.8,0 -5,-2.2 -5,-5 v-24 c0,-2.8 2.2,-5 5,-5 z" />
 
     <!-- Glowing Screen Phosphor Glass -->
     <path
-        android:fillColor="#F4D58D"
-        android:pathData="M33,45 h31 c2,0 3.5,1.5 3.5,3.5 v21 c0,2 -1.5,3.5 -3.5,3.5 h-31 c-2,0 -3.5,-1.5 -3.5,-3.5 v-21 c0,-2 1.5,-3.5 3.5,-3.5 z" />
+        android:fillColor="#FCE192"
+        android:pathData="M34,44 h30 c2,0 3.5,1.5 3.5,3.5 v21 c0,2 -1.5,3.5 -3.5,3.5 h-30 c-2,0 -3.5,-1.5 -3.5,-3.5 v-21 c0,-2 1.5,-3.5 3.5,-3.5 z" />
 
-    <!-- 1930s Rubber-Hose Eyes (Left pie eye) -->
+    <!-- Subtle Screen Highlight Glare -->
     <path
-        android:fillColor="#1B1924"
-        android:pathData="M43,53 A4,4.5 0 1,0 43,62 A4,4.5 0 1,0 43,53" />
-    <path
-        android:fillColor="#F4D58D"
-        android:pathData="M44,55 L40,57.5 L44,60 Z" />
-
-    <!-- Right pie eye -->
-    <path
-        android:fillColor="#1B1924"
-        android:pathData="M54,53 A4,4.5 0 1,0 54,62 A4,4.5 0 1,0 54,53" />
-    <path
-        android:fillColor="#F4D58D"
-        android:pathData="M55,55 L51,57.5 L55,60 Z" />
-
-    <!-- Cheerful Vintage Smile -->
-    <path
-        android:strokeColor="#1B1924"
-        android:strokeWidth="2"
+        android:strokeColor="#66FFFFFF"
+        android:strokeWidth="1.4"
         android:strokeLineCap="round"
-        android:pathData="M42,65 Q48.5,70 55,65" />
+        android:pathData="M34,46.5 h12" />
+
+    <!-- 1930s Rubber-Hose Pie Eyes (Left Eye) -->
+    <path
+        android:fillColor="#181624"
+        android:pathData="M43.5,55.5 m-4.2,0 a4.2,4.8 0 1,0 8.4,0 a4.2,4.8 0 1,0 -8.4,0" />
+    <path
+        android:fillColor="#FCE192"
+        android:pathData="M43.5,55.5 L48.2,53.2 L48.2,57.8 Z" />
+
+    <!-- 1930s Rubber-Hose Pie Eyes (Right Eye) -->
+    <path
+        android:fillColor="#181624"
+        android:pathData="M54.5,55.5 m-4.2,0 a4.2,4.8 0 1,0 8.4,0 a4.2,4.8 0 1,0 -8.4,0" />
+    <path
+        android:fillColor="#FCE192"
+        android:pathData="M54.5,55.5 L59.2,53.2 L59.2,57.8 Z" />
+
+    <!-- Cheerful Vintage Smile & Rosy Cheeks -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#181624"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M41.5,63.5 Q49,69.5 56.5,63.5" />
     <path
         android:strokeColor="#E63946"
-        android:strokeWidth="1.5"
+        android:strokeWidth="1.6"
         android:strokeLineCap="round"
-        android:pathData="M40,64 L41,66" />
+        android:pathData="M39.8,62.2 C40.5,63.2 41.2,64.2 42.2,64.8" />
     <path
         android:strokeColor="#E63946"
-        android:strokeWidth="1.5"
+        android:strokeWidth="1.6"
         android:strokeLineCap="round"
-        android:pathData="M57,64 L56,66" />
+        android:pathData="M58.2,62.2 C57.5,63.2 56.8,64.2 55.8,64.8" />
 
-    <!-- Right Panel Controls -->
-    <!-- Dial 1 -->
+    <!-- Right Panel Control Dials (X = 76) -->
+    <!-- VHF Dial -->
     <path
-        android:fillColor="#FFD166"
-        android:pathData="M75,47 A3,3 0 1,0 75,53 A3,3 0 1,0 75,47" />
+        android:fillColor="#181624"
+        android:pathData="M76.5,49 m-3.8,0 a3.8,3.8 0 1,0 7.6,0 a3.8,3.8 0 1,0 -7.6,0" />
     <path
-        android:strokeColor="#1B1924"
-        android:strokeWidth="1"
+        android:fillColor="#FFC857"
+        android:pathData="M76.5,49 m-3.0,0 a3.0,3.0 0 1,0 6.0,0 a3.0,3.0 0 1,0 -6.0,0" />
+    <path
+        android:strokeColor="#181624"
+        android:strokeWidth="1.2"
         android:strokeLineCap="round"
-        android:pathData="M75,48 L75,50" />
+        android:pathData="M76.5,46.8 L76.5,49" />
 
-    <!-- Dial 2 -->
+    <!-- UHF Dial -->
     <path
-        android:fillColor="#FFD166"
-        android:pathData="M75,56 A3,3 0 1,0 75,62 A3,3 0 1,0 75,56" />
+        android:fillColor="#181624"
+        android:pathData="M76.5,58.5 m-3.8,0 a3.8,3.8 0 1,0 7.6,0 a3.8,3.8 0 1,0 -7.6,0" />
     <path
-        android:strokeColor="#1B1924"
-        android:strokeWidth="1"
+        android:fillColor="#FFC857"
+        android:pathData="M76.5,58.5 m-3.0,0 a3.0,3.0 0 1,0 6.0,0 a3.0,3.0 0 1,0 -6.0,0" />
+    <path
+        android:strokeColor="#181624"
+        android:strokeWidth="1.2"
         android:strokeLineCap="round"
-        android:pathData="M75,58 L77,59" />
+        android:pathData="M76.5,58.5 L78.5,59.5" />
 
-    <!-- Speaker grill lines -->
+    <!-- Acoustic Speaker Grille Slots -->
     <path
-        android:strokeColor="#FFD166"
-        android:strokeWidth="1"
-        android:pathData="M72,67 h6 M72,70 h6 M72,73 h6" />
+        android:strokeColor="#FFC857"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M73.5,66.5 h6 M73.5,69.5 h6 M73.5,72.5 h6" />
 </vector>

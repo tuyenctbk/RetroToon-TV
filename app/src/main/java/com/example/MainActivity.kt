@@ -112,6 +112,7 @@ fun RetroToonApp(
                 if (uiState.playingItem != null) {
                     RetroPlayerScreen(
                         cartoon = uiState.playingItem!!,
+                        upNextCartoon = uiState.upNextItem,
                         streamUrl = uiState.resolvedStreamUrl,
                         isResolving = uiState.isResolvingStream,
                         isInPipMode = uiState.isInPipMode,
@@ -121,7 +122,7 @@ fun RetroToonApp(
                         onPlayNext = { viewModel.playNext() },
                         onEffectChange = { viewModel.setFilmEffect(it) },
                         onAspectChange = { viewModel.setAspectMode(it) },
-                        onSaveProgress = { id, pos -> viewModel.saveProgress(id, pos) },
+                        onSaveProgress = { id, pos, dur -> viewModel.saveProgress(id, pos, dur) },
                         onEnterPip = onEnterPip,
                         onRetryStream = { viewModel.retryStreamWithAlternative() },
                         onToggleOrientation = onToggleOrientation,

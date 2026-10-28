@@ -1,12 +1,17 @@
 package com.example.ui.home
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +36,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -131,7 +137,7 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 28.dp)
+                .statusBarsPadding()
         ) {
             // Adaptive Header (Clean logo + TV navigation pills on wide screens / quick shortcuts on mobile)
             RetroMarqueeHeader(
@@ -143,104 +149,118 @@ fun HomeScreen(
                 onOpenDonation = onOpenDonation
             )
 
-            // Top-Level Instant Search Bar for filtering library by title or character name
-            Surface(
-                color = CinemaDark,
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CinemaBorder),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = if (isWideScreen) 28.dp else 16.dp, vertical = 6.dp)
+            // Top-Level Instant Search Bar (hidden on Search tab where dedicated search bar is shown)
+            AnimatedVisibility(
+                visible = uiState.currentTab != "search",
+                enter = fadeIn(tween(220)),
+                exit = fadeOut(tween(180))
             ) {
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = { query ->
-                        onSearchQueryChanged(query)
-                        if (query.isNotBlank() && uiState.currentTab != "search") {
-                            onTabSelected("search")
-                        }
-                    },
-                    placeholder = {
-                        Text(
-                            text = stringResource(R.string.search_placeholder),
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 13.sp
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = RetroGold,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    trailingIcon = {
-                        if (uiState.searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { onSearchQueryChanged("") }) {
-                                Icon(
-                                    imageVector = Icons.Default.Clear,
-                                    contentDescription = stringResource(R.string.close),
-                                    tint = Color.White.copy(alpha = 0.6f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = RetroGold,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = CinemaSurfaceVariant,
-                        unfocusedContainerColor = CinemaSurfaceVariant,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
+                Surface(
+                    color = CinemaDark,
                     shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaBorder),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("top_level_search_bar")
-                )
+                        .padding(horizontal = if (isWideScreen) 28.dp else 16.dp, vertical = 6.dp)
+                ) {
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = { query ->
+                            onSearchQueryChanged(query)
+                            if (query.isNotBlank() && uiState.currentTab != "search") {
+                                onTabSelected("search")
+                            }
+                        },
+                        placeholder = {
+                            Text(
+                                text = stringResource(R.string.search_placeholder),
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 13.sp
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = RetroGold,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (uiState.searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { onSearchQueryChanged("") }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = stringResource(R.string.close),
+                                        tint = Color.White.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = RetroGold,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedContainerColor = CinemaSurfaceVariant,
+                            unfocusedContainerColor = CinemaSurfaceVariant,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("top_level_search_bar")
+                    )
+                }
             }
 
-            // Main Content Area
+            // Main Content Area with smooth tab transitions
             Box(modifier = Modifier.weight(1f)) {
-                when (uiState.currentTab) {
-                    "home" -> {
-                        HomeCatalogView(
-                            uiState = uiState,
-                            isWideScreen = isWideScreen,
-                            onCategoryFilterSelected = onCategoryFilterSelected,
-                            onPlay = onPlay,
-                            onSelectDetail = onSelectDetail,
-                            onToggleWatchlist = onToggleWatchlist,
-                            onSetHero = onSetHero,
-                            onClearRecentlyWatched = onClearRecentlyWatched,
-                            onOpenDonation = onOpenDonation,
-                            onDismissDonationBanner = onDismissDonationBanner
-                        )
-                    }
-                    "search" -> {
-                        SearchView(
-                            searchQuery = uiState.searchQuery,
-                            searchResults = uiState.searchResults,
-                            isSearching = uiState.isSearching,
-                            isWideScreen = isWideScreen,
-                            onQueryChange = onSearchQueryChanged,
-                            onPlay = onPlay,
-                            onSelectDetail = onSelectDetail,
-                            onToggleWatchlist = onToggleWatchlist
-                        )
-                    }
-                    "watchlist" -> {
-                        WatchlistView(
-                            items = uiState.watchlistItems,
-                            isWideScreen = isWideScreen,
-                            onPlay = onPlay,
-                            onSelectDetail = onSelectDetail,
-                            onToggleWatchlist = onToggleWatchlist,
-                            onExploreClick = { onTabSelected("home") }
-                        )
+                AnimatedContent(
+                    targetState = uiState.currentTab,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(240)) togetherWith fadeOut(animationSpec = tween(180))
+                    },
+                    label = "tab_content_transition"
+                ) { tab ->
+                    when (tab) {
+                        "home" -> {
+                            HomeCatalogView(
+                                uiState = uiState,
+                                isWideScreen = isWideScreen,
+                                onCategoryFilterSelected = onCategoryFilterSelected,
+                                onPlay = onPlay,
+                                onSelectDetail = onSelectDetail,
+                                onToggleWatchlist = onToggleWatchlist,
+                                onSetHero = onSetHero,
+                                onClearRecentlyWatched = onClearRecentlyWatched,
+                                onOpenDonation = onOpenDonation,
+                                onDismissDonationBanner = onDismissDonationBanner
+                            )
+                        }
+                        "search" -> {
+                            SearchView(
+                                searchQuery = uiState.searchQuery,
+                                searchResults = uiState.searchResults,
+                                isSearching = uiState.isSearching,
+                                isWideScreen = isWideScreen,
+                                onQueryChange = onSearchQueryChanged,
+                                onPlay = onPlay,
+                                onSelectDetail = onSelectDetail,
+                                onToggleWatchlist = onToggleWatchlist
+                            )
+                        }
+                        "watchlist" -> {
+                            WatchlistView(
+                                items = uiState.watchlistItems,
+                                isWideScreen = isWideScreen,
+                                onPlay = onPlay,
+                                onSelectDetail = onSelectDetail,
+                                onToggleWatchlist = onToggleWatchlist,
+                                onExploreClick = { onTabSelected("home") }
+                            )
+                        }
                     }
                 }
             }
@@ -1057,13 +1077,20 @@ fun HeroBillboard(
             .background(CinemaDark)
             .testTag("hero_billboard")
     ) {
-        // High-res Background Image
-        AsyncImage(
-            model = cartoon.thumbnailUrl,
-            contentDescription = cartoon.title,
-            contentScale = ContentScale.Crop,
+        // High-res Background Image with smooth Crossfade when hero changes
+        Crossfade(
+            targetState = cartoon.thumbnailUrl,
+            animationSpec = tween(550),
+            label = "hero_image_crossfade",
             modifier = Modifier.fillMaxSize()
-        )
+        ) { thumbUrl ->
+            AsyncImage(
+                model = thumbUrl,
+                contentDescription = cartoon.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         // Vignette & Cinematic Dark Gradient
         Box(
@@ -1210,13 +1237,22 @@ fun HeroBillboard(
                         }
                     }
 
-                    // Switcher Dots
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Animated Switcher Pills
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         featuredOptions.forEach { opt ->
                             val isCurrent = opt.id == cartoon.id
+                            val dotWidth by animateDpAsState(
+                                targetValue = if (isCurrent) 22.dp else 8.dp,
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                label = "hero_dot_width"
+                            )
                             Box(
                                 modifier = Modifier
-                                    .size(if (isCurrent) 10.dp else 8.dp)
+                                    .height(8.dp)
+                                    .width(dotWidth)
                                     .clip(CircleShape)
                                     .background(if (isCurrent) RetroGold else Color.White.copy(alpha = 0.35f))
                                     .clickable { onSelectHero(opt) }
@@ -1231,14 +1267,21 @@ fun HeroBillboard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 10.dp),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         featuredOptions.forEach { opt ->
                             val isCurrent = opt.id == cartoon.id
+                            val dotWidth by animateDpAsState(
+                                targetValue = if (isCurrent) 20.dp else 7.dp,
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                label = "hero_mobile_dot_width"
+                            )
                             Box(
                                 modifier = Modifier
                                     .padding(horizontal = 3.dp)
-                                    .size(if (isCurrent) 9.dp else 7.dp)
+                                    .height(7.dp)
+                                    .width(dotWidth)
                                     .clip(CircleShape)
                                     .background(if (isCurrent) RetroGold else Color.White.copy(alpha = 0.35f))
                                     .clickable { onSelectHero(opt) }
@@ -1532,8 +1575,25 @@ fun CartoonPosterCard(
                     )
                 }
 
-                // Progress Bar overlay along bottom of thumbnail when watch progress exists in Room DB
+                // Resume badge top-left when watch progress exists
                 if (cartoon.watchProgressMs > 0) {
+                    Surface(
+                        color = RetroRuby.copy(alpha = 0.9f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                    ) {
+                        Text(
+                            text = "RESUME",
+                            color = Color.White,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.5.sp,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+
                     val progressFraction = if (cartoon.durationMs > 0) {
                         (cartoon.watchProgressMs.toFloat() / cartoon.durationMs.toFloat()).coerceIn(0.08f, 1f)
                     } else {
@@ -1543,7 +1603,7 @@ fun CartoonPosterCard(
                         progress = { progressFraction },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(3.dp)
+                            .height(3.5.dp)
                             .align(Alignment.BottomCenter),
                         color = RetroGold,
                         trackColor = Color.White.copy(alpha = 0.25f)
@@ -1567,20 +1627,29 @@ fun CartoonPosterCard(
                     )
                 }
 
-                // Play hover icon in center
+                // Play hover icon in center with animated focus highlight
+                val playBtnBg by animateColorAsState(
+                    targetValue = if (isFocused) RetroGold else Color.Black.copy(alpha = 0.65f),
+                    label = "play_btn_bg"
+                )
+                val playIconTint by animateColorAsState(
+                    targetValue = if (isFocused) CinemaBlack else RetroGold,
+                    label = "play_icon_tint"
+                )
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .size(36.dp)
+                        .size(if (isFocused) 42.dp else 36.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.6f))
+                        .background(playBtnBg)
+                        .border(1.dp, RetroGold.copy(alpha = 0.65f), CircleShape)
                         .clickable { onPlay() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Play",
-                        tint = RetroGold,
+                        tint = playIconTint,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -1590,11 +1659,11 @@ fun CartoonPosterCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                    .padding(horizontal = 10.dp, vertical = 9.dp)
             ) {
                 Text(
                     text = cartoon.title,
-                    color = Color.White,
+                    color = if (isFocused) RetroGold else Color.White,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -1618,23 +1687,6 @@ fun CartoonPosterCard(
                         fontSize = 10.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Dynamic watch progress bar
-                if (cartoon.watchProgressMs > 0) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    val progressRatio = (cartoon.watchProgressMs.toFloat() /
-                            (if (cartoon.durationMs > 0) cartoon.durationMs else 600000L).toFloat())
-                        .coerceIn(0.05f, 1f)
-                    LinearProgressIndicator(
-                        progress = { progressRatio },
-                        color = RetroRuby,
-                        trackColor = Color.White.copy(alpha = 0.25f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(2.dp))
                     )
                 }
             }
