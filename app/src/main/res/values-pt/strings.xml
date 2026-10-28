@@ -49,6 +49,21 @@
     <string name="recently_watched">Assistidos Recentemente</string>
     <string name="continue_watching">Continuar Assistindo</string>
     <string name="clear_history">Limpar Histórico</string>
+    <string name="supporter_badge">★ Apoiador</string>
+    <string name="method_google_play">Google Play</string>
+    <string name="method_paypal">PayPal / QR</string>
+    <string name="method_kofi">Gorjeta Ko-fi</string>
+    <string name="open_paypal">Abrir PayPal</string>
+    <string name="tip_on_kofi">Apoiar no Ko-fi</string>
+    <string name="buy_dev_coffee">☕ Curtiu este curta clássico? </string>
+    <string name="buy_dev_coffee_action">Pagar um café ao desenvolvedor</string>
     <string name="dismiss">Dispensar</string>
     <string name="dont_ask_again">Não perguntar novamente</string>
+    <string name="filter_action">Ação</string>
+    <string name="filter_comedy">Comédia</string>
+    <string name="filter_classic">Clássico</string>
+    <string name="filter_vintage">Vintage</string>
+    <string name="filter_animation">Animação</string>
+    <string name="my_list_title">⭐ Minha Lista (Favoritos)</string>
+    <string name="trailer_preview_badge">▶ PRÉ-PRÉVIA 10s</string>
 </resources>

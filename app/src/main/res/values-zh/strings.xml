@@ -49,6 +49,21 @@
     <string name="recently_watched">最近观看</string>
     <string name="continue_watching">继续观看</string>
     <string name="clear_history">清除历史</string>
+    <string name="supporter_badge">★ 赞助者</string>
+    <string name="method_google_play">Google Play</string>
+    <string name="method_paypal">PayPal / QR</string>
+    <string name="method_kofi">Ko-fi 打赏</string>
+    <string name="open_paypal">打开 PayPal</string>
+    <string name="tip_on_kofi">在 Ko-fi 打赏</string>
+    <string name="buy_dev_coffee">☕ 喜欢这部经典短片吗？ </string>
+    <string name="buy_dev_coffee_action">请开发者喝杯咖啡</string>
     <string name="dismiss">关闭</string>
     <string name="dont_ask_again">不再提示</string>
+    <string name="filter_action">动作</string>
+    <string name="filter_comedy">喜剧</string>
+    <string name="filter_classic">经典</string>
+    <string name="filter_vintage">复古</string>
+    <string name="filter_animation">动画</string>
+    <string name="my_list_title">⭐ 我的片单 (收藏夹)</string>
+    <string name="trailer_preview_badge">▶ 10秒预告片</string>
 </resources>

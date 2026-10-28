@@ -49,6 +49,21 @@
     <string name="recently_watched">最近再生した作品</string>
     <string name="continue_watching">続きから再生</string>
     <string name="clear_history">履歴を消去</string>
+    <string name="supporter_badge">★ サポーター</string>
+    <string name="method_google_play">Google Play</string>
+    <string name="method_paypal">PayPal / QR</string>
+    <string name="method_kofi">Ko-fi 支援</string>
+    <string name="open_paypal">PayPalを開く</string>
+    <string name="tip_on_kofi">Ko-fiでコーヒーを奢る</string>
+    <string name="buy_dev_coffee">☕ この名作アニメを楽しみましたか？ </string>
+    <string name="buy_dev_coffee_action">開発者にコーヒーを奢る</string>
     <string name="dismiss">閉じる</string>
     <string name="dont_ask_again">今後表示しない</string>
+    <string name="filter_action">アクション</string>
+    <string name="filter_comedy">コメディ</string>
+    <string name="filter_classic">クラシック</string>
+    <string name="filter_vintage">ヴィンテージ</string>
+    <string name="filter_animation">アニメーション</string>
+    <string name="my_list_title">⭐ マイリスト (お気に入り)</string>
+    <string name="trailer_preview_badge">▶ プレビュー 10秒</string>
 </resources>

@@ -49,6 +49,21 @@
     <string name="recently_watched">Zuletzt Gesehen</string>
     <string name="continue_watching">Weiterschauen</string>
     <string name="clear_history">Verlauf Löschen</string>
+    <string name="supporter_badge">★ Unterstützer</string>
+    <string name="method_google_play">Google Play</string>
+    <string name="method_paypal">PayPal / QR</string>
+    <string name="method_kofi">Ko-fi Trinkgeld</string>
+    <string name="open_paypal">PayPal Öffnen</string>
+    <string name="tip_on_kofi">Auf Ko-fi Spenden</string>
+    <string name="buy_dev_coffee">☕ Hat Ihnen dieser Cartoon gefallen? </string>
+    <string name="buy_dev_coffee_action">Einen Kaffee spendieren</string>
     <string name="dismiss">Schließen</string>
     <string name="dont_ask_again">Nicht mehr fragen</string>
+    <string name="filter_action">Action</string>
+    <string name="filter_comedy">Komödie</string>
+    <string name="filter_classic">Klassisch</string>
+    <string name="filter_vintage">Vintage</string>
+    <string name="filter_animation">Animation</string>
+    <string name="my_list_title">⭐ Meine Liste (Merkliste)</string>
+    <string name="trailer_preview_badge">▶ VORSCHAU 10s</string>
 </resources>

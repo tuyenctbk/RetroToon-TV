@@ -29,6 +29,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -126,7 +128,11 @@ fun HomeScreen(
     ) {
         val isWideScreen = maxWidth >= 680.dp
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 28.dp)
+        ) {
             // Adaptive Header (Clean logo + TV navigation pills on wide screens / quick shortcuts on mobile)
             RetroMarqueeHeader(
                 activeTab = uiState.currentTab,

@@ -49,6 +49,21 @@
     <string name="recently_watched">최근 시청한 영상</string>
     <string name="continue_watching">이어보기</string>
     <string name="clear_history">시청 기록 삭제</string>
+    <string name="supporter_badge">★ 후원자</string>
+    <string name="method_google_play">Google Play</string>
+    <string name="method_paypal">PayPal / QR</string>
+    <string name="method_kofi">Ko-fi 후원</string>
+    <string name="open_paypal">PayPal 열기</string>
+    <string name="tip_on_kofi">Ko-fi에서 커피 후원하기</string>
+    <string name="buy_dev_coffee">☕ 이 클래식 단편을 재미있게 보셨나요? </string>
+    <string name="buy_dev_coffee_action">개발자에게 커피 후원하기</string>
     <string name="dismiss">닫기</string>
     <string name="dont_ask_again">다시 묻지 않기</string>
+    <string name="filter_action">액션</string>
+    <string name="filter_comedy">코미디</string>
+    <string name="filter_classic">클래식</string>
+    <string name="filter_vintage">빈티지</string>
+    <string name="filter_animation">애니메이션</string>
+    <string name="my_list_title">⭐ 내 리스트 (즐겨찾기)</string>
+    <string name="trailer_preview_badge">▶ 미리보기 10초</string>
 </resources>

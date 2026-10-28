@@ -49,6 +49,21 @@
     <string name="recently_watched">Недавно просмотренные</string>
     <string name="continue_watching">Продолжить просмотр</string>
     <string name="clear_history">Очистить историю</string>
+    <string name="supporter_badge">★ Меценат</string>
+    <string name="method_google_play">Google Play</string>
+    <string name="method_paypal">PayPal / QR</string>
+    <string name="method_kofi">Ko-fi Чаевые</string>
+    <string name="open_paypal">Открыть PayPal</string>
+    <string name="tip_on_kofi">Поддержать на Ko-fi</string>
+    <string name="buy_dev_coffee">☕ Понравился этот классический мультфильм? </string>
+    <string name="buy_dev_coffee_action">Угостить разработчика кофе</string>
     <string name="dismiss">Скрыть</string>
     <string name="dont_ask_again">Больше не спрашивать</string>
+    <string name="filter_action">Экшен</string>
+    <string name="filter_comedy">Комедия</string>
+    <string name="filter_classic">Классика</string>
+    <string name="filter_vintage">Винтаж</string>
+    <string name="filter_animation">Анимация</string>
+    <string name="my_list_title">⭐ Мой Список (Избранное)</string>
+    <string name="trailer_preview_badge">▶ ПРЕВЬЮ 10с</string>
 </resources>

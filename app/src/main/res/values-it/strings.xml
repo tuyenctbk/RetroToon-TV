@@ -49,6 +49,21 @@
     <string name="recently_watched">Visti di Recente</string>
     <string name="continue_watching">Continua a Guardare</string>
     <string name="clear_history">Cancella Cronologia</string>
+    <string name="supporter_badge">★ Sostenitore</string>
+    <string name="method_google_play">Google Play</string>
+    <string name="method_paypal">PayPal / QR</string>
+    <string name="method_kofi">Mancia Ko-fi</string>
+    <string name="open_paypal">Apri PayPal</string>
+    <string name="tip_on_kofi">Offri un Caffè</string>
+    <string name="buy_dev_coffee">☕ Ti è piaciuto questo cortometraggio? </string>
+    <string name="buy_dev_coffee_action">Offri un caffè allo sviluppatore</string>
     <string name="dismiss">Chiudi</string>
     <string name="dont_ask_again">Non chiedere più</string>
+    <string name="filter_action">Azione</string>
+    <string name="filter_comedy">Commedia</string>
+    <string name="filter_classic">Classico</string>
+    <string name="filter_vintage">Vintage</string>
+    <string name="filter_animation">Animazione</string>
+    <string name="my_list_title">⭐ La Mia Lista (Preferiti)</string>
+    <string name="trailer_preview_badge">▶ ANTEPRIMA 10s</string>
 </resources>
