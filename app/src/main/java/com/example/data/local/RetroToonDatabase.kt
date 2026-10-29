@@ -25,7 +25,7 @@ abstract class RetroToonDatabase : RoomDatabase() {
                     RetroToonDatabase::class.java,
                     "retrotoon_database.db"
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                 INSTANCE = instance
                 instance

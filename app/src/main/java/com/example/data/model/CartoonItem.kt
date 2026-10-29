@@ -36,26 +36,26 @@ data class CartoonItem(
 // Internet Archive Advanced Search API response structures
 @JsonClass(generateAdapter = true)
 data class ArchiveSearchResponse(
-    @Json(name = "response") val response: ArchiveSearchBody? = null
+    @param:Json(name = "response") val response: ArchiveSearchBody? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class ArchiveSearchBody(
-    @Json(name = "numFound") val numFound: Int = 0,
-    @Json(name = "start") val start: Int = 0,
-    @Json(name = "docs") val docs: List<ArchiveDoc> = emptyList()
+    @param:Json(name = "numFound") val numFound: Int = 0,
+    @param:Json(name = "start") val start: Int = 0,
+    @param:Json(name = "docs") val docs: List<ArchiveDoc> = emptyList()
 )
 
 @JsonClass(generateAdapter = true)
 data class ArchiveDoc(
-    @Json(name = "identifier") val identifier: String,
-    @Json(name = "title") val title: String? = null,
-    @Json(name = "description") val description: Any? = null, // Can be String or List
-    @Json(name = "year") val year: Any? = null,
-    @Json(name = "creator") val creator: Any? = null,
-    @Json(name = "downloads") val downloads: Long? = 0L,
-    @Json(name = "runtime") val runtime: Any? = null,
-    @Json(name = "mediatype") val mediatype: String? = null
+    @param:Json(name = "identifier") val identifier: String,
+    @param:Json(name = "title") val title: String? = null,
+    @param:Json(name = "description") val description: Any? = null, // Can be String or List
+    @param:Json(name = "year") val year: Any? = null,
+    @param:Json(name = "creator") val creator: Any? = null,
+    @param:Json(name = "downloads") val downloads: Long? = 0L,
+    @param:Json(name = "runtime") val runtime: Any? = null,
+    @param:Json(name = "mediatype") val mediatype: String? = null
 ) {
     fun getCleanTitle(): String {
         val raw = title ?: identifier.replace("_", " ")
@@ -90,13 +90,13 @@ data class ArchiveDoc(
 // Internet Archive Metadata Files response structures
 @JsonClass(generateAdapter = true)
 data class ArchiveMetadataResponse(
-    @Json(name = "result") val result: List<ArchiveFileEntry>? = null
+    @param:Json(name = "result") val result: List<ArchiveFileEntry>? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class ArchiveFileEntry(
-    @Json(name = "name") val name: String,
-    @Json(name = "format") val format: String? = null,
-    @Json(name = "size") val size: String? = null,
-    @Json(name = "length") val length: String? = null
+    @param:Json(name = "name") val name: String,
+    @param:Json(name = "format") val format: String? = null,
+    @param:Json(name = "size") val size: String? = null,
+    @param:Json(name = "length") val length: String? = null
 )

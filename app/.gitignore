@@ -1,1 +1,22 @@
-/build
+# ==============================================================================
+# RetroToon TV — App Module .gitignore
+# ==============================================================================
+
+/build/
+/release/
+/debug/
+/captures/
+output-metadata.json
+
+# Signing & Secrets
+*.jks
+*.keystore
+*.apk
+*.aab
+*.ap_
+*.idsig
+
+# Local & Temporary Files
+.DS_Store
+*.log
+*.hprof

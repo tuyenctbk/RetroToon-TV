@@ -116,6 +116,19 @@ class CartoonRepository(
         } catch (e: Exception) {
             _watchDuration.value = emptyMap()
         }
+
+        val streamCacheJson = prefs.getString("stream_url_cache_json", "{}") ?: "{}"
+        try {
+            val obj = JSONObject(streamCacheJson)
+            val keys = obj.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val v = obj.optString(k, "")
+                if (v.isNotBlank()) {
+                    streamUrlCache[k] = v
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     fun toggleWatchlist(item: CartoonItem) {
@@ -204,11 +217,17 @@ class CartoonRepository(
 
     suspend fun resolveAllStreamUrls(item: CartoonItem): List<String> {
         val candidates = mutableListOf<String>()
-        if (!item.videoStreamUrl.isNullOrBlank()) {
+        streamUrlCache[item.id]?.takeIf { it.isNotBlank() }?.let { cached ->
+            candidates.add(cached)
+        }
+        if (!item.videoStreamUrl.isNullOrBlank() && !candidates.contains(item.videoStreamUrl)) {
             candidates.add(item.videoStreamUrl)
         }
         if (!item.mp4Filename.isNullOrBlank()) {
-            candidates.add("https://archive.org/download/${item.id}/${item.mp4Filename}")
+            val mp4Url = "https://archive.org/download/${item.id}/${item.mp4Filename}"
+            if (!candidates.contains(mp4Url)) {
+                candidates.add(mp4Url)
+            }
         }
         val remoteFiles = apiClient.resolveMp4Files(item.id)
         for (f in remoteFiles) {
@@ -223,9 +242,16 @@ class CartoonRepository(
         }
         if (candidates.isNotEmpty()) {
             streamUrlCache[item.id] = candidates.first()
+            try {
+                val cacheObj = JSONObject()
+                streamUrlCache.forEach { (k, v) -> cacheObj.put(k, v) }
+                prefs.edit().putString("stream_url_cache_json", cacheObj.toString()).apply()
+            } catch (_: Exception) {}
         }
         return candidates
     }
+
+    fun getSubtitleUrl(itemId: String): String? = apiClient.getCachedSubtitleUrl(itemId)
 
     suspend fun searchCartoons(query: String): List<CartoonItem> {
         val searchResults = apiClient.searchCartoons(query)

@@ -84,6 +84,10 @@ class ArchiveApiClient {
         return@withContext results
     }
 
+    private val subtitleCache = mutableMapOf<String, String>()
+
+    fun getCachedSubtitleUrl(identifier: String): String? = subtitleCache[identifier]
+
     suspend fun resolveMp4Files(identifier: String): List<String> = withContext(Dispatchers.IO) {
         try {
             val url = "https://archive.org/metadata/$identifier/files"
@@ -104,6 +108,10 @@ class ArchiveApiClient {
                     val name = fileObj.optString("name", "")
                     if (name.endsWith(".mp4", ignoreCase = true)) {
                         mp4List.add(name)
+                    } else if (name.endsWith(".vtt", ignoreCase = true) || name.endsWith(".srt", ignoreCase = true)) {
+                        if (!subtitleCache.containsKey(identifier)) {
+                            subtitleCache[identifier] = "https://archive.org/download/$identifier/$name"
+                        }
                     }
                 }
 

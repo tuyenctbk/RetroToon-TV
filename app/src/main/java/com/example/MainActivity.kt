@@ -114,6 +114,7 @@ fun RetroToonApp(
                         cartoon = uiState.playingItem!!,
                         upNextCartoon = uiState.upNextItem,
                         streamUrl = uiState.resolvedStreamUrl,
+                        subtitleUrl = uiState.resolvedSubtitleUrl,
                         isResolving = uiState.isResolvingStream,
                         isInPipMode = uiState.isInPipMode,
                         filmEffect = uiState.filmEffect,
@@ -144,6 +145,8 @@ fun RetroToonApp(
                             onSetHero = { viewModel.setHero(it) },
                             onSearchQueryChanged = { viewModel.onSearchQueryChanged(it) },
                             onClearRecentlyWatched = { viewModel.clearRecentlyWatched() },
+                            onRemoveRecentlyWatched = { viewModel.removeRecentlyWatched(it) },
+                            onShufflePlay = { viewModel.playRandomShuffle() },
                             onOpenDonation = { viewModel.openDonationDialog() },
                             onDismissDonationBanner = { viewModel.dismissHomeDonationBanner() },
                             modifier = Modifier.fillMaxSize()

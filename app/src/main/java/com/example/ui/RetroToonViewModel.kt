@@ -44,6 +44,7 @@ data class UiState(
     val playingItem: CartoonItem? = null,
     val upNextItem: CartoonItem? = null,
     val resolvedStreamUrl: String? = null,
+    val resolvedSubtitleUrl: String? = null,
     val candidateStreamUrls: List<String> = emptyList(),
     val activeStreamIndex: Int = 0,
     val isResolvingStream: Boolean = false,
@@ -254,6 +255,7 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
             activeSuggestion = null, // Close any suggestion during playback
             isResolvingStream = true,
             resolvedStreamUrl = null,
+            resolvedSubtitleUrl = null,
             candidateStreamUrls = emptyList(),
             activeStreamIndex = 0,
             streamError = null
@@ -267,12 +269,28 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
 
             val candidates = repository.resolveAllStreamUrls(item)
             val primaryUrl = candidates.firstOrNull() ?: item.getResolvedStreamUrl()
+            val subtitleUrl = repository.getSubtitleUrl(item.id)
             _uiState.value = _uiState.value.copy(
                 candidateStreamUrls = candidates,
                 resolvedStreamUrl = primaryUrl,
+                resolvedSubtitleUrl = subtitleUrl,
                 isResolvingStream = false
             )
         }
+    }
+
+    fun playRandomShuffle() {
+        val state = _uiState.value
+        val allPool = (state.featuredList +
+                state.supermanList +
+                state.popeyeList +
+                state.bettyList +
+                state.serialsList +
+                state.watchlistItems).distinctBy { it.id }
+        if (allPool.isEmpty()) return
+        val currentId = state.playingItem?.id ?: state.heroItem?.id
+        val candidates = allPool.filter { it.id != currentId }.ifEmpty { allPool }
+        playItem(candidates.random())
     }
 
     fun clearRecentlyWatched() {
@@ -309,6 +327,7 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
             playingItem = null,
             upNextItem = null,
             resolvedStreamUrl = null,
+            resolvedSubtitleUrl = null,
             candidateStreamUrls = emptyList(),
             isResolvingStream = false,
             streamError = null

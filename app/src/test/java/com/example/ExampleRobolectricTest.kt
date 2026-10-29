@@ -246,6 +246,24 @@ class ExampleRobolectricTest {
     val cleared = repository.recentlyWatched.first()
     assertTrue(cleared.none { it.id == item.id })
   }
+
+  @Test
+  fun `verify watch progress and duration enrichment and completion reset`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repository = CartoonRepository(context)
+    val item = repository.getCuratedFeatured().first()
+
+    repository.saveWatchProgress(item.id, positionMs = 45000L, durationMs = 600000L)
+    val enriched = repository.enrichWithUserData(listOf(item)).first()
+    assertEquals(45000L, enriched.watchProgressMs)
+    assertEquals(600000L, enriched.durationMs)
+
+    // When position reaches near the end of duration, progress resets to 0L
+    repository.saveWatchProgress(item.id, positionMs = 599000L, durationMs = 600000L)
+    val completed = repository.enrichWithUserData(listOf(item)).first()
+    assertEquals(0L, completed.watchProgressMs)
+    assertEquals(600000L, completed.durationMs)
+  }
 }
 
 

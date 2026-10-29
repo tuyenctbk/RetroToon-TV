@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -123,6 +124,8 @@ fun HomeScreen(
     onSetHero: (CartoonItem) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onClearRecentlyWatched: () -> Unit = {},
+    onRemoveRecentlyWatched: (String) -> Unit = {},
+    onShufflePlay: () -> Unit = {},
     onOpenDonation: () -> Unit = {},
     onDismissDonationBanner: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -235,6 +238,8 @@ fun HomeScreen(
                                 onToggleWatchlist = onToggleWatchlist,
                                 onSetHero = onSetHero,
                                 onClearRecentlyWatched = onClearRecentlyWatched,
+                                onRemoveRecentlyWatched = onRemoveRecentlyWatched,
+                                onShufflePlay = onShufflePlay,
                                 onOpenDonation = onOpenDonation,
                                 onDismissDonationBanner = onDismissDonationBanner
                             )
@@ -719,6 +724,8 @@ fun HomeCatalogView(
     onToggleWatchlist: (CartoonItem) -> Unit,
     onSetHero: (CartoonItem) -> Unit,
     onClearRecentlyWatched: () -> Unit = {},
+    onRemoveRecentlyWatched: (String) -> Unit = {},
+    onShufflePlay: () -> Unit = {},
     onOpenDonation: () -> Unit = {},
     onDismissDonationBanner: () -> Unit = {}
 ) {
@@ -776,6 +783,7 @@ fun HomeCatalogView(
                         onPlay = { onPlay(hero) },
                         onDetails = { onSelectDetail(hero) },
                         onToggleWatchlist = { onToggleWatchlist(hero) },
+                        onShufflePlay = onShufflePlay,
                         featuredOptions = uiState.featuredList.take(5),
                         onSelectHero = onSetHero
                     )
@@ -959,7 +967,8 @@ fun HomeCatalogView(
                     onPlay = onPlay,
                     onSelectDetail = onSelectDetail,
                     onToggleWatchlist = onToggleWatchlist,
-                    onClearHistory = onClearRecentlyWatched
+                    onClearHistory = onClearRecentlyWatched,
+                    onRemoveItem = onRemoveRecentlyWatched
                 )
             }
         }
@@ -1057,6 +1066,7 @@ fun HeroBillboard(
     onPlay: () -> Unit,
     onDetails: () -> Unit,
     onToggleWatchlist: () -> Unit,
+    onShufflePlay: () -> Unit = {},
     featuredOptions: List<CartoonItem>,
     onSelectHero: (CartoonItem) -> Unit
 ) {
@@ -1223,6 +1233,25 @@ fun HeroBillboard(
                             Text(if (cartoon.isFavorite) "Saved" else "+ My List", fontSize = 13.sp, maxLines = 1, softWrap = false)
                         }
 
+                        OutlinedButton(
+                            onClick = onShufflePlay,
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = RetroCream
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .height(46.dp)
+                                .testTag("hero_shuffle_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shuffle,
+                                contentDescription = "Shuffle Marathon",
+                                tint = RetroGold
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Shuffle", fontSize = 13.sp, maxLines = 1, softWrap = false)
+                        }
+
                         IconButton(
                             onClick = onDetails,
                             modifier = Modifier
@@ -1332,6 +1361,21 @@ fun HeroBillboard(
                         }
 
                         IconButton(
+                            onClick = onShufflePlay,
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .testTag("hero_shuffle_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shuffle,
+                                contentDescription = "Shuffle Marathon",
+                                tint = RetroGold,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        IconButton(
                             onClick = onDetails,
                             modifier = Modifier
                                 .size(44.dp)
@@ -1358,7 +1402,8 @@ fun RecentlyWatchedCarouselRow(
     onPlay: (CartoonItem) -> Unit,
     onSelectDetail: (CartoonItem) -> Unit,
     onToggleWatchlist: (CartoonItem) -> Unit,
-    onClearHistory: () -> Unit
+    onClearHistory: () -> Unit,
+    onRemoveItem: (String) -> Unit = {}
 ) {
     if (items.isEmpty()) return
 
@@ -1435,6 +1480,7 @@ fun RecentlyWatchedCarouselRow(
                     onClick = { onSelectDetail(item) },
                     onPlay = { onPlay(item) },
                     onToggleWatchlist = { onToggleWatchlist(item) },
+                    onRemoveRecent = { onRemoveItem(item.id) },
                     modifier = Modifier.width(cardWidth)
                 )
             }
@@ -1501,6 +1547,7 @@ fun CartoonPosterCard(
     onClick: () -> Unit,
     onPlay: () -> Unit,
     onToggleWatchlist: () -> Unit,
+    onRemoveRecent: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -1610,21 +1657,43 @@ fun CartoonPosterCard(
                     )
                 }
 
-                // Watchlist button top-right
-                IconButton(
-                    onClick = onToggleWatchlist,
+                // Watchlist & optional Remove from History buttons top-right
+                Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(4.dp)
-                        .size(34.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = if (cartoon.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                        contentDescription = "Watchlist",
-                        tint = if (cartoon.isFavorite) RetroGold else Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (onRemoveRecent != null) {
+                        IconButton(
+                            onClick = onRemoveRecent,
+                            modifier = Modifier
+                                .size(30.dp)
+                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                .testTag("remove_recent_${cartoon.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Remove from History",
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onToggleWatchlist,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (cartoon.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            contentDescription = "Watchlist",
+                            tint = if (cartoon.isFavorite) RetroGold else Color.White,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
                 }
 
                 // Play hover icon in center with animated focus highlight

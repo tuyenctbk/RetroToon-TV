@@ -1,18 +1,82 @@
-*.iml
-.gradle
-.kotlin
+# ==============================================================================
+# RetroToon TV — Root .gitignore
+# ==============================================================================
+
+# --- Gradle & Kotlin Build Artifacts ---
+.gradle/
+.kotlin/
+build/
+**/build/
+!**/src/**/build/
+captures/
+.navigation/
+.externalNativeBuild/
+.cxx/
+output-metadata.json
+
+# --- Local Configuration & Environment Secrets ---
+local.properties
 /local.properties
+*.properties
+!gradle.properties
+!**/gradle-wrapper.properties
+.env
+.env.*
+!.env.example
+
+# --- Android Keystores & Signing Credentials (NEVER COMMIT) ---
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+common_release_key.jks
+debug.keystore
+my-upload-key.jks
+keystore.properties
+signing.properties
+
+# --- Compiled Binaries & Packages ---
+*.apk
+*.aab
+*.ap_
+*.aab.idsig
+*.apk.idsig
+*.dex
+*.class
+*.OBB
+
+# --- Android Studio / IntelliJ IDEA ---
+*.iml
+*.ipr
+*.iws
+.idea/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+/.idea/deploymentTargetDropDown.xml
+/.idea/render.experimental.xml
+
+# --- Profiling, Crash Dumps & Logs ---
+*.hprof
+*.log
+*.trace
+hs_err_pid*
+replay_pid*
+
+# --- OS & Editor Temporary Files ---
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-.env
-debug.keystore
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+*~
+*.swp
+*.swo
+*.bak
+*.tmp
+tmp/
+temp/

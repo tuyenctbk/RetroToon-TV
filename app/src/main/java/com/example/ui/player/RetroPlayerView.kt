@@ -40,8 +40,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.HighQuality
@@ -96,6 +97,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -118,6 +121,7 @@ fun RetroPlayerScreen(
     cartoon: CartoonItem,
     upNextCartoon: CartoonItem? = null,
     streamUrl: String?,
+    subtitleUrl: String? = null,
     isResolving: Boolean,
     isInPipMode: Boolean,
     filmEffect: FilmEffect,
@@ -157,6 +161,7 @@ fun RetroPlayerScreen(
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var isUserSeeking by remember { mutableStateOf(false) }
     var seekSliderPosition by remember { mutableFloatStateOf(0f) }
+    var areSubtitlesEnabled by remember { mutableStateOf(true) }
 
     // Gesture animated indicators
     var showRewindGesture by remember { mutableStateOf(false) }
@@ -177,14 +182,36 @@ fun RetroPlayerScreen(
         }
     }
 
-    // Connect streamUrl
-    LaunchedEffect(streamUrl) {
+    // Connect streamUrl with rich MediaMetadata & optional sidecar subtitles
+    LaunchedEffect(streamUrl, subtitleUrl) {
         if (!streamUrl.isNullOrBlank()) {
             playbackError = null
             isBuffering = true
             isEnded = false
-            val mediaItem = MediaItem.fromUri(Uri.parse(streamUrl))
-            exoPlayer.setMediaItem(mediaItem)
+            val metadata = MediaMetadata.Builder()
+                .setTitle(cartoon.title)
+                .setArtist(cartoon.creator)
+                .setDisplayTitle("${cartoon.title} (${cartoon.year})")
+                .setArtworkUri(Uri.parse(cartoon.thumbnailUrl))
+                .build()
+            val itemBuilder = MediaItem.Builder()
+                .setUri(Uri.parse(streamUrl))
+                .setMediaId(cartoon.id)
+                .setMediaMetadata(metadata)
+            if (!subtitleUrl.isNullOrBlank()) {
+                val subMime = if (subtitleUrl.lowercase().endsWith(".vtt")) {
+                    MimeTypes.TEXT_VTT
+                } else {
+                    MimeTypes.APPLICATION_SUBRIP
+                }
+                val subConfig = MediaItem.SubtitleConfiguration.Builder(Uri.parse(subtitleUrl))
+                    .setMimeType(subMime)
+                    .setLanguage("en")
+                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                    .build()
+                itemBuilder.setSubtitleConfigurations(listOf(subConfig))
+            }
+            exoPlayer.setMediaItem(itemBuilder.build())
             if (cartoon.watchProgressMs > 0) {
                 exoPlayer.seekTo(cartoon.watchProgressMs)
             }
@@ -753,7 +780,7 @@ fun RetroPlayerScreen(
                         tag = "player_back_button"
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Close Player",
                             tint = Color.White
                         )
@@ -868,6 +895,35 @@ fun RetroPlayerScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(text = aspectMode.title.take(4), color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
+                            }
+                        }
+
+                        // Closed Captions Toggle (shown when sidecar subtitle is resolved)
+                        if (!subtitleUrl.isNullOrBlank()) {
+                            TvFocusableIconButton(
+                                onClick = {
+                                    areSubtitlesEnabled = !areSubtitlesEnabled
+                                    exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                                        .buildUpon()
+                                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !areSubtitlesEnabled)
+                                        .build()
+                                    lastInteractionTime = System.currentTimeMillis()
+                                },
+                                tag = "player_cc_button"
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.ClosedCaption,
+                                        contentDescription = "Closed Captions",
+                                        tint = if (areSubtitlesEnabled) RetroGold else Color.White.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = if (areSubtitlesEnabled) "CC On" else "CC Off",
+                                        color = if (areSubtitlesEnabled) RetroGold else Color.White.copy(alpha = 0.7f),
+                                        fontSize = 8.sp
+                                    )
+                                }
                             }
                         }
 
