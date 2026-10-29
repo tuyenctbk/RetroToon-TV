@@ -183,7 +183,7 @@ fun RetroPlayerScreen(
     var areSubtitlesEnabled by remember { mutableStateOf(true) }
 
     // Audio Engine: Optical Loudness Boost + 0-Amplitude Silence Detector + 1920s Theater Piano
-    var audioMode by remember { mutableStateOf(PlayerAudioMode.BOOST) }
+    var audioMode by remember { mutableStateOf(PlayerAudioMode.NORMAL) }
     var isSilentFilmAutoPiano by remember(cartoon.id) { mutableStateOf(false) }
     var hasTriedAudioFallback by remember(cartoon.id) { mutableStateOf(false) }
     val silenceDetector = remember { SilenceDetectingAudioProcessor() }
@@ -207,7 +207,7 @@ fun RetroPlayerScreen(
                 enableAudioTrackPlaybackParams: Boolean
             ): AudioSink? {
                 return DefaultAudioSink.Builder(context)
-                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableFloatOutput(false)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                     .setAudioProcessors(arrayOf(silenceDetector))
                     .build()
