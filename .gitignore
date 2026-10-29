@@ -46,11 +46,12 @@ signing.properties
 *.class
 *.OBB
 
-# --- Android Studio / IntelliJ IDEA ---
+# --- Android Studio / IntelliJ IDEA / VS Code ---
 *.iml
 *.ipr
 *.iws
 .idea/
+.vscode/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml

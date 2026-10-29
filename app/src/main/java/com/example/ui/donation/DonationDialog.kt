@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -94,9 +97,10 @@ fun DonationDialog(
             color = CinemaDark,
             tonalElevation = 12.dp,
             modifier = Modifier
-                .widthIn(max = 500.dp)
+                .widthIn(max = 520.dp)
                 .fillMaxWidth(0.95f)
-                .border(1.dp, CinemaBorder, RoundedCornerShape(20.dp))
+                .heightIn(max = 580.dp)
+                .border(1.5.dp, RetroGold.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
                 .testTag("donation_dialog")
         ) {
             Column(
@@ -143,14 +147,22 @@ fun DonationDialog(
                         }
                     }
 
+                    var closeFocused by remember { mutableStateOf(false) }
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
+                            .size(34.dp)
+                            .onFocusChanged { closeFocused = it.isFocused }
+                            .background(
+                                if (closeFocused) RetroGold else Color.Transparent,
+                                CircleShape
+                            )
+                            .testTag("donation_close_button")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = Color.White.copy(alpha = 0.6f)
+                            tint = if (closeFocused) CinemaBlack else Color.White.copy(alpha = 0.6f)
                         )
                     }
                 }
@@ -309,12 +321,18 @@ private fun GooglePlayTiersView(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         tiers.forEach { tier ->
+            var tierFocused by remember { mutableStateOf(false) }
             Card(
                 colors = CardDefaults.cardColors(containerColor = CinemaSurface),
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CinemaBorder),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (tierFocused) 2.dp else 1.dp,
+                    color = if (tierFocused) RetroGold else CinemaBorder
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onFocusChanged { tierFocused = it.isFocused }
+                    .focusable()
                     .clickable { onSelectTier(tier) }
                     .testTag("tier_${tier.id}")
             ) {

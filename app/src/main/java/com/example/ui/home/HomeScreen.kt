@@ -1200,6 +1200,11 @@ fun HeroBillboard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        var playFocused by remember { mutableStateOf(false) }
+                        var listFocused by remember { mutableStateOf(false) }
+                        var shuffleFocused by remember { mutableStateOf(false) }
+                        var detailsFocused by remember { mutableStateOf(false) }
+
                         Button(
                             onClick = onPlay,
                             colors = ButtonDefaults.buttonColors(
@@ -1209,6 +1214,11 @@ fun HeroBillboard(
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
                                 .height(46.dp)
+                                .onFocusChanged { playFocused = it.isFocused }
+                                .then(
+                                    if (playFocused) Modifier.border(2.5.dp, Color.White, RoundedCornerShape(8.dp))
+                                    else Modifier
+                                )
                                 .testTag("hero_play_button")
                         ) {
                             Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
@@ -1219,15 +1229,21 @@ fun HeroBillboard(
                         OutlinedButton(
                             onClick = onToggleWatchlist,
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = if (cartoon.isFavorite) RetroGold else Color.White
+                                contentColor = if (cartoon.isFavorite || listFocused) RetroGold else Color.White
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (listFocused) 2.dp else 1.dp,
+                                color = if (listFocused) RetroGold else Color.White.copy(alpha = 0.5f)
                             ),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(46.dp)
+                            modifier = Modifier
+                                .height(46.dp)
+                                .onFocusChanged { listFocused = it.isFocused }
                         ) {
                             Icon(
                                 imageVector = if (cartoon.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                                 contentDescription = null,
-                                tint = if (cartoon.isFavorite) RetroGold else Color.White
+                                tint = if (cartoon.isFavorite || listFocused) RetroGold else Color.White
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(if (cartoon.isFavorite) "Saved" else "+ My List", fontSize = 13.sp, maxLines = 1, softWrap = false)
@@ -1236,11 +1252,16 @@ fun HeroBillboard(
                         OutlinedButton(
                             onClick = onShufflePlay,
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = RetroCream
+                                contentColor = if (shuffleFocused) RetroGold else RetroCream
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (shuffleFocused) 2.dp else 1.dp,
+                                color = if (shuffleFocused) RetroGold else Color.White.copy(alpha = 0.5f)
                             ),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
                                 .height(46.dp)
+                                .onFocusChanged { shuffleFocused = it.isFocused }
                                 .testTag("hero_shuffle_button")
                         ) {
                             Icon(
@@ -1256,12 +1277,21 @@ fun HeroBillboard(
                             onClick = onDetails,
                             modifier = Modifier
                                 .size(46.dp)
-                                .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .onFocusChanged { detailsFocused = it.isFocused }
+                                .background(
+                                    if (detailsFocused) RetroGold.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.15f),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .then(
+                                    if (detailsFocused) Modifier.border(2.dp, RetroGold, RoundedCornerShape(8.dp))
+                                    else Modifier
+                                )
+                                .testTag("hero_details_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "Details",
-                                tint = Color.White
+                                tint = if (detailsFocused) RetroGold else Color.White
                             )
                         }
                     }
@@ -1380,6 +1410,7 @@ fun HeroBillboard(
                             modifier = Modifier
                                 .size(44.dp)
                                 .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                .testTag("hero_details_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
@@ -1812,22 +1843,38 @@ fun SearchView(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Quick Suggestions
+        // Quick Suggestions (D-Pad & Touch focusable)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(quickPills) { pill ->
                 val isSelected = searchQuery.equals(pill, ignoreCase = true)
+                var pillFocused by remember { mutableStateOf(false) }
                 Surface(
-                    color = if (isSelected) RetroGold else CinemaSurfaceVariant,
+                    color = when {
+                        isSelected -> RetroGold
+                        pillFocused -> CinemaDark
+                        else -> CinemaSurfaceVariant
+                    },
                     contentColor = if (isSelected) CinemaBlack else Color.White,
                     shape = RoundedCornerShape(16.dp),
+                    border = if (pillFocused || isSelected) {
+                        androidx.compose.foundation.BorderStroke(1.5.dp, if (pillFocused) Color.White else RetroGold)
+                    } else null,
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
+                        .onFocusChanged { pillFocused = it.isFocused }
+                        .focusable()
                         .clickable { onQueryChange(pill) }
+                        .testTag("search_pill_${pill.lowercase().replace(" ", "_")}")
                 ) {
                     Text(
                         text = pill,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = if (isSelected || pillFocused) FontWeight.Bold else FontWeight.Medium,
+                        color = when {
+                            isSelected -> CinemaBlack
+                            pillFocused -> RetroGold
+                            else -> Color.White
+                        },
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
                     )
                 }
