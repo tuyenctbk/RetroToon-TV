@@ -2,11 +2,13 @@ package com.example
 
 import android.app.PictureInPictureParams
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -20,9 +22,11 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -41,13 +45,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.parseColor("#09080D"))
+        )
         setContent {
             RetroToonTheme {
                 RetroToonApp(
                     viewModel = viewModel,
                     onEnterPip = { enterPipMode() },
-                    onToggleOrientation = { toggleOrientation() }
+                    onToggleOrientation = { toggleOrientation() },
+                    onResetOrientation = { resetOrientationIfMobile() }
                 )
             }
         }
@@ -59,6 +67,14 @@ class MainActivity : ComponentActivity() {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         } else {
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+    }
+
+    private fun resetOrientationIfMobile() {
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) &&
+            requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        ) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
 
@@ -94,9 +110,34 @@ class MainActivity : ComponentActivity() {
 fun RetroToonApp(
     viewModel: RetroToonViewModel,
     onEnterPip: () -> Unit,
-    onToggleOrientation: () -> Unit
+    onToggleOrientation: () -> Unit,
+    onResetOrientation: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Restore natural device orientation after closing the video player on mobile/tablet
+    LaunchedEffect(uiState.playingItem == null) {
+        if (uiState.playingItem == null) {
+            onResetOrientation()
+        }
+    }
+
+    // Automatically dismiss any open IME keyboard when opening dialogs, starting video, or leaving Search
+    LaunchedEffect(
+        uiState.showDonationDialog,
+        uiState.selectedDetailItem != null,
+        uiState.playingItem != null,
+        uiState.currentTab
+    ) {
+        if (uiState.showDonationDialog ||
+            uiState.selectedDetailItem != null ||
+            uiState.playingItem != null ||
+            uiState.currentTab != "search"
+        ) {
+            keyboardController?.hide()
+        }
+    }
 
     Crossfade(
         targetState = uiState.isSplashVisible,
@@ -161,7 +202,9 @@ fun RetroToonApp(
                             cartoon = detailItem,
                             onDismiss = { viewModel.selectDetail(null) },
                             onPlay = { viewModel.playItem(it) },
-                            onToggleWatchlist = { viewModel.toggleWatchlist(it) }
+                            onToggleWatchlist = { viewModel.toggleWatchlist(it) },
+                            onDownload = { viewModel.downloadCartoon(it) },
+                            onCopyStreamUrl = { viewModel.copyStreamUrl(it) }
                         )
                     }
                 }

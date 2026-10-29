@@ -24,11 +24,17 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.CinemaBlack
@@ -83,18 +89,21 @@ fun HomeDonationBanner(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.support_banner_title),
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp
+                        fontSize = 12.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = stringResource(R.string.support_banner_subtitle),
                         color = Color.White.copy(alpha = 0.65f),
                         fontSize = 10.5.sp,
-                        maxLines = 1
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -102,30 +111,42 @@ fun HomeDonationBanner(
             Spacer(modifier = Modifier.width(8.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                var supportFocused by remember { mutableStateOf(false) }
+                var dismissFocused by remember { mutableStateOf(false) }
                 Button(
                     onClick = onSupportClick,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = RetroGold,
                         contentColor = CinemaBlack
                     ),
+                    border = if (supportFocused) androidx.compose.foundation.BorderStroke(2.dp, Color.White) else null,
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.height(32.dp)
+                    modifier = Modifier
+                        .height(34.dp)
+                        .onFocusChanged { supportFocused = it.isFocused }
                 ) {
                     Text(
                         text = stringResource(R.string.support),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 11.5.sp
+                        fontSize = 11.5.sp,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
 
+                Spacer(modifier = Modifier.width(4.dp))
+
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier
+                        .size(28.dp)
+                        .onFocusChanged { dismissFocused = it.isFocused }
+                        .background(if (dismissFocused) RetroGold else Color.Transparent, CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.dismiss),
-                        tint = Color.White.copy(alpha = 0.5f),
+                        tint = if (dismissFocused) CinemaBlack else Color.White.copy(alpha = 0.5f),
                         modifier = Modifier.size(16.dp)
                     )
                 }

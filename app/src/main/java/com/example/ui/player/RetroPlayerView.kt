@@ -34,8 +34,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -73,6 +75,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -139,8 +142,15 @@ fun RetroPlayerScreen(
 ) {
     val context = LocalContext.current
     val focusRequester = remember { FocusRequester() }
+    val filmEffectFocusRequester = remember { FocusRequester() }
+    val nextShortFocusRequester = remember { FocusRequester() }
+    val playNextBannerFocusRequester = remember { FocusRequester() }
+    var isRootPlayerFocused by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    val latestCartoon by rememberUpdatedState(cartoon)
+    val latestOnSaveProgress by rememberUpdatedState(onSaveProgress)
+
+    LaunchedEffect(cartoon.id) {
         try {
             focusRequester.requestFocus()
         } catch (_: Exception) {}
@@ -151,16 +161,16 @@ fun RetroPlayerScreen(
     }
 
     var isPlaying by remember { mutableStateOf(true) }
-    var currentPositionMs by remember { mutableLongStateOf(cartoon.watchProgressMs) }
-    var durationMs by remember { mutableLongStateOf(cartoon.durationMs) }
-    var isBuffering by remember { mutableStateOf(true) }
-    var isEnded by remember { mutableStateOf(false) }
-    var playbackError by remember { mutableStateOf<String?>(null) }
+    var currentPositionMs by remember(cartoon.id) { mutableLongStateOf(cartoon.watchProgressMs) }
+    var durationMs by remember(cartoon.id) { mutableLongStateOf(cartoon.durationMs) }
+    var isBuffering by remember(cartoon.id) { mutableStateOf(true) }
+    var isEnded by remember(cartoon.id) { mutableStateOf(false) }
+    var playbackError by remember(cartoon.id) { mutableStateOf<String?>(null) }
     var hasAutoRetried by remember(cartoon.id) { mutableStateOf(false) }
     var areControlsVisible by remember { mutableStateOf(true) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    var isUserSeeking by remember { mutableStateOf(false) }
-    var seekSliderPosition by remember { mutableFloatStateOf(0f) }
+    var isUserSeeking by remember(cartoon.id) { mutableStateOf(false) }
+    var seekSliderPosition by remember(cartoon.id) { mutableFloatStateOf(0f) }
     var areSubtitlesEnabled by remember { mutableStateOf(true) }
 
     // Gesture animated indicators
@@ -168,7 +178,7 @@ fun RetroPlayerScreen(
     var showForwardGesture by remember { mutableStateOf(false) }
 
     // Marathon autoplay countdown
-    var marathonCountdown by remember { mutableIntStateOf(5) }
+    var marathonCountdown by remember(cartoon.id) { mutableIntStateOf(5) }
 
     // ExoPlayer initialization with movie audio attributes
     val exoPlayer = remember {
@@ -183,7 +193,7 @@ fun RetroPlayerScreen(
     }
 
     // Connect streamUrl with rich MediaMetadata & optional sidecar subtitles
-    LaunchedEffect(streamUrl, subtitleUrl) {
+    LaunchedEffect(streamUrl, subtitleUrl, cartoon.id) {
         if (!streamUrl.isNullOrBlank()) {
             playbackError = null
             isBuffering = true
@@ -212,9 +222,7 @@ fun RetroPlayerScreen(
                 itemBuilder.setSubtitleConfigurations(listOf(subConfig))
             }
             exoPlayer.setMediaItem(itemBuilder.build())
-            if (cartoon.watchProgressMs > 0) {
-                exoPlayer.seekTo(cartoon.watchProgressMs)
-            }
+            exoPlayer.seekTo(cartoon.watchProgressMs.coerceAtLeast(0L))
             exoPlayer.prepare()
             exoPlayer.play()
         }
@@ -239,12 +247,12 @@ fun RetroPlayerScreen(
                     playbackError = null
                     isEnded = false
                     if (durationMs > 0L) {
-                        onSaveProgress(cartoon.id, exoPlayer.currentPosition.coerceAtLeast(0L), durationMs)
+                        latestOnSaveProgress(latestCartoon.id, exoPlayer.currentPosition.coerceAtLeast(0L), durationMs)
                     }
                 } else if (state == Player.STATE_ENDED) {
                     isEnded = true
                     marathonCountdown = 5
-                    onSaveProgress(cartoon.id, 0L, durationMs)
+                    latestOnSaveProgress(latestCartoon.id, 0L, durationMs)
                 }
             }
 
@@ -264,29 +272,32 @@ fun RetroPlayerScreen(
             val currentPos = exoPlayer.currentPosition
             val totalDur = exoPlayer.duration.coerceAtLeast(durationMs)
             if (currentPos > 0 && !isEnded) {
-                onSaveProgress(cartoon.id, currentPos, totalDur)
+                latestOnSaveProgress(latestCartoon.id, currentPos, totalDur)
             }
             exoPlayer.release()
         }
     }
 
     // Position tracking
-    LaunchedEffect(exoPlayer, isPlaying) {
+    LaunchedEffect(exoPlayer, isPlaying, cartoon.id) {
         while (true) {
             if (isPlaying && !isUserSeeking) {
                 currentPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
                 durationMs = exoPlayer.duration.coerceAtLeast(durationMs)
                 if (currentPositionMs > 0 && currentPositionMs % 5000L < 1000L) {
-                    onSaveProgress(cartoon.id, currentPositionMs, durationMs)
+                    latestOnSaveProgress(latestCartoon.id, currentPositionMs, durationMs)
                 }
             }
             delay(500)
         }
     }
 
-    // Marathon countdown timer
+    // Marathon countdown timer & auto-focus primary banner button on TV
     LaunchedEffect(isEnded) {
         if (isEnded) {
+            try {
+                playNextBannerFocusRequester.requestFocus()
+            } catch (_: Exception) {}
             while (marathonCountdown > 0 && isEnded) {
                 delay(1000)
                 marathonCountdown--
@@ -311,17 +322,17 @@ fun RetroPlayerScreen(
         }
     }
 
-    // Auto-hide OSD controls after idle (unless paused, ended, or in PiP)
-    LaunchedEffect(areControlsVisible, lastInteractionTime, isPlaying, isInPipMode, isEnded) {
-        if (areControlsVisible && isPlaying && !isInPipMode && !isEnded) {
+    // Auto-hide OSD controls after idle (only while root video surface has focus, not while navigating toolbar)
+    LaunchedEffect(areControlsVisible, lastInteractionTime, isPlaying, isInPipMode, isEnded, isRootPlayerFocused) {
+        if (areControlsVisible && isPlaying && !isInPipMode && !isEnded && isRootPlayerFocused) {
             delay(4000)
             areControlsVisible = false
         }
     }
 
     val resizeMode = when (aspectMode) {
-        AspectMode.ORIGINAL -> AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT
-        AspectMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        AspectMode.ORIGINAL -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        AspectMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FILL
         AspectMode.FILL -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     }
 
@@ -351,17 +362,18 @@ fun RetroPlayerScreen(
             .fillMaxSize()
             .background(CinemaBlack)
             .focusRequester(focusRequester)
+            .onFocusChanged { isRootPlayerFocused = it.isFocused }
             .focusable()
             .onKeyEvent { keyEvent ->
                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                     when (keyEvent.nativeKeyEvent.keyCode) {
-                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
                             if (isPlaying) exoPlayer.pause() else exoPlayer.play()
                             areControlsVisible = true
                             lastInteractionTime = System.currentTimeMillis()
                             true
                         }
-                        KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                        KeyEvent.KEYCODE_MEDIA_REWIND -> {
                             val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
                             exoPlayer.seekTo(newPos)
                             currentPositionMs = newPos
@@ -370,7 +382,7 @@ fun RetroPlayerScreen(
                             lastInteractionTime = System.currentTimeMillis()
                             true
                         }
-                        KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                        KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
                             val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
                             exoPlayer.seekTo(newPos)
                             currentPositionMs = newPos
@@ -383,10 +395,61 @@ fun RetroPlayerScreen(
                             onPlayNext()
                             true
                         }
-                        KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            areControlsVisible = true
-                            lastInteractionTime = System.currentTimeMillis()
-                            true
+                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                            if (isRootPlayerFocused && !isEnded && playbackError == null) {
+                                if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            } else false
+                        }
+                        KeyEvent.KEYCODE_DPAD_LEFT -> {
+                            if (isRootPlayerFocused && !isEnded && playbackError == null) {
+                                val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                exoPlayer.seekTo(newPos)
+                                currentPositionMs = newPos
+                                showRewindGesture = true
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            } else false
+                        }
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                            if (isRootPlayerFocused && !isEnded && playbackError == null) {
+                                val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
+                                exoPlayer.seekTo(newPos)
+                                currentPositionMs = newPos
+                                showForwardGesture = true
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            } else false
+                        }
+                        KeyEvent.KEYCODE_DPAD_UP -> {
+                            if (isRootPlayerFocused && !isEnded && playbackError == null) {
+                                val wasVisible = areControlsVisible
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                if (wasVisible) {
+                                    try {
+                                        filmEffectFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                }
+                                true
+                            } else false
+                        }
+                        KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            if (isRootPlayerFocused && !isEnded && playbackError == null) {
+                                val wasVisible = areControlsVisible
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                if (wasVisible) {
+                                    try {
+                                        nextShortFocusRequester.requestFocus()
+                                    } catch (_: Exception) {}
+                                }
+                                true
+                            } else false
                         }
                         else -> false
                     }
@@ -678,33 +741,50 @@ fun RetroPlayerScreen(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        var isNextBannerFocused by remember { mutableStateOf(false) }
                         Button(
                             onClick = onPlayNext,
-                            colors = ButtonDefaults.buttonColors(containerColor = RetroGold, contentColor = CinemaBlack)
+                            colors = ButtonDefaults.buttonColors(containerColor = RetroGold, contentColor = CinemaBlack),
+                            border = if (isNextBannerFocused) androidx.compose.foundation.BorderStroke(2.dp, Color.White) else null,
+                            modifier = Modifier
+                                .focusRequester(playNextBannerFocusRequester)
+                                .onFocusChanged { isNextBannerFocused = it.isFocused }
                         ) {
                             Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Play Next Now", fontWeight = FontWeight.Bold)
                         }
+                        var isReplayFocused by remember { mutableStateOf(false) }
                         OutlinedButton(
                             onClick = {
                                 exoPlayer.seekTo(0)
                                 exoPlayer.play()
                                 isEnded = false
-                            }
+                                try {
+                                    focusRequester.requestFocus()
+                                } catch (_: Exception) {}
+                            },
+                            border = androidx.compose.foundation.BorderStroke(
+                                if (isReplayFocused) 2.dp else 1.dp,
+                                if (isReplayFocused) RetroGold else Color.White.copy(alpha = 0.45f)
+                            ),
+                            modifier = Modifier.onFocusChanged { isReplayFocused = it.isFocused }
                         ) {
-                            Icon(imageVector = Icons.Default.Replay, contentDescription = null)
+                            Icon(imageVector = Icons.Default.Replay, contentDescription = null, tint = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Replay")
+                            Text("Replay", color = Color.White)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
+                    var isCoffeeBannerFocused by remember { mutableStateOf(false) }
                     Surface(
-                        color = Color.White.copy(alpha = 0.08f),
+                        color = if (isCoffeeBannerFocused) RetroGold.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.08f),
                         shape = RoundedCornerShape(8.dp),
+                        border = if (isCoffeeBannerFocused) androidx.compose.foundation.BorderStroke(1.5.dp, RetroGold) else null,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .onFocusChanged { isCoffeeBannerFocused = it.isFocused }
                             .clickable { onOpenDonation() }
                     ) {
                         Row(
@@ -772,7 +852,8 @@ fun RetroPlayerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.TopCenter)
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                        .statusBarsPadding()
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TvFocusableIconButton(
@@ -824,12 +905,11 @@ fun RetroPlayerScreen(
                         }
                     }
 
-                    // Action Buttons (PiP, Filter, Aspect, Rotate) in a horizontally scrollable row
-                    val scrollState = rememberScrollState()
+                    // Action Buttons (PiP, Filter, Aspect, CC, Rotate) aligned to top-right
+                    val isTelevision = remember(context) {
+                        context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+                    }
                     Row(
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .horizontalScroll(scrollState),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -861,6 +941,7 @@ fun RetroPlayerScreen(
                                 onEffectChange(nextEffect)
                                 lastInteractionTime = System.currentTimeMillis()
                             },
+                            modifier = Modifier.focusRequester(filmEffectFocusRequester),
                             tag = "player_film_effect_button"
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -927,94 +1008,98 @@ fun RetroPlayerScreen(
                             }
                         }
 
-                        // Orientation Rotate Button
-                        TvFocusableIconButton(
-                            onClick = {
-                                onToggleOrientation()
-                                lastInteractionTime = System.currentTimeMillis()
-                            },
-                            tag = "player_orientation_button"
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.ScreenRotation,
-                                    contentDescription = "Rotate",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(text = "Rotate", color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
+                        // Orientation Rotate Button (only on mobile/tablet touch devices, hidden on TV)
+                        if (!isTelevision) {
+                            TvFocusableIconButton(
+                                onClick = {
+                                    onToggleOrientation()
+                                    lastInteractionTime = System.currentTimeMillis()
+                                },
+                                tag = "player_orientation_button"
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.ScreenRotation,
+                                        contentDescription = "Rotate",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(text = "Rotate", color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
+                                }
                             }
                         }
                     }
                 }
 
-                // Center Controls (Rewind 10s, Play/Pause, Forward 10s)
-                Row(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalArrangement = Arrangement.spacedBy(28.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TvFocusableIconButton(
-                        onClick = {
-                            val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
-                            exoPlayer.seekTo(newPos)
-                            currentPositionMs = newPos
-                            showRewindGesture = true
-                            lastInteractionTime = System.currentTimeMillis()
-                        },
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.5f)),
-                        tag = "player_rewind_button"
+                // Center Controls (Rewind 10s, Play/Pause, Forward 10s) - hidden while spinner is active
+                if (!isResolving && !isBuffering) {
+                    Row(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalArrangement = Arrangement.spacedBy(28.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.FastRewind,
-                            contentDescription = "Rewind 10s",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
+                        TvFocusableIconButton(
+                            onClick = {
+                                val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                exoPlayer.seekTo(newPos)
+                                currentPositionMs = newPos
+                                showRewindGesture = true
+                                lastInteractionTime = System.currentTimeMillis()
+                            },
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.5f)),
+                            tag = "player_rewind_button"
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FastRewind,
+                                contentDescription = "Rewind 10s",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
 
-                    TvFocusableIconButton(
-                        onClick = {
-                            if (isPlaying) exoPlayer.pause() else exoPlayer.play()
-                            lastInteractionTime = System.currentTimeMillis()
-                        },
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(CircleShape)
-                            .background(RetroGold),
-                        tag = "player_play_pause_button"
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (isPlaying) "Pause" else "Play",
-                            tint = CinemaBlack,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
+                        TvFocusableIconButton(
+                            onClick = {
+                                if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+                                lastInteractionTime = System.currentTimeMillis()
+                            },
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(CircleShape)
+                                .background(RetroGold),
+                            tag = "player_play_pause_button"
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                tint = CinemaBlack,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
 
-                    TvFocusableIconButton(
-                        onClick = {
-                            val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
-                            exoPlayer.seekTo(newPos)
-                            currentPositionMs = newPos
-                            showForwardGesture = true
-                            lastInteractionTime = System.currentTimeMillis()
-                        },
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.5f)),
-                        tag = "player_forward_button"
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FastForward,
-                            contentDescription = "Forward 10s",
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
+                        TvFocusableIconButton(
+                            onClick = {
+                                val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
+                                exoPlayer.seekTo(newPos)
+                                currentPositionMs = newPos
+                                showForwardGesture = true
+                                lastInteractionTime = System.currentTimeMillis()
+                            },
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.5f)),
+                            tag = "player_forward_button"
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FastForward,
+                                contentDescription = "Forward 10s",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
                     }
                 }
 
@@ -1023,7 +1108,8 @@ fun RetroPlayerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
-                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 14.dp)
                 ) {
                     val totalDuration = if (durationMs > 0) durationMs.toFloat() else 1f
                     val currentPosFloat = if (isUserSeeking) seekSliderPosition else currentPositionMs.toFloat()
@@ -1069,6 +1155,7 @@ fun RetroPlayerScreen(
                                 onPlayNext()
                                 lastInteractionTime = System.currentTimeMillis()
                             },
+                            modifier = Modifier.focusRequester(nextShortFocusRequester),
                             tag = "player_next_button"
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1121,7 +1208,6 @@ fun TvFocusableIconButton(
                 scaleX = scale
                 scaleY = scale
             }
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .then(
                 if (isFocused) Modifier.border(2.dp, RetroGold, RoundedCornerShape(8.dp))

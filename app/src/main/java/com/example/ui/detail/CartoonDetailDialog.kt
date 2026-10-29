@@ -81,13 +81,16 @@ fun CartoonDetailDialog(
     cartoon: CartoonItem,
     onDismiss: () -> Unit,
     onPlay: (CartoonItem) -> Unit,
-    onToggleWatchlist: (CartoonItem) -> Unit
+    onToggleWatchlist: (CartoonItem) -> Unit,
+    onDownload: ((CartoonItem) -> Unit)? = null,
+    onCopyStreamUrl: ((CartoonItem) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val downloadHelper = remember { DownloadHelper(context) }
     val playFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(cartoon.id) {
+        kotlinx.coroutines.delay(140)
         try {
             playFocusRequester.requestFocus()
         } catch (_: Exception) {}
@@ -356,7 +359,11 @@ fun CartoonDetailDialog(
                         ) {
                             OutlinedButton(
                                 onClick = {
-                                    downloadHelper.downloadCartoon(cartoon, cartoon.getResolvedStreamUrl())
+                                    if (onDownload != null) {
+                                        onDownload(cartoon)
+                                    } else {
+                                        downloadHelper.downloadCartoon(cartoon, cartoon.getResolvedStreamUrl())
+                                    }
                                 },
                                 border = androidx.compose.foundation.BorderStroke(
                                     width = if (downloadFocused) 2.dp else 1.dp,
@@ -385,8 +392,14 @@ fun CartoonDetailDialog(
 
                             OutlinedButton(
                                 onClick = {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(cartoon.archiveDetailsUrl))
-                                    context.startActivity(intent)
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(cartoon.archiveDetailsUrl))
+                                        context.startActivity(intent)
+                                    } catch (_: Exception) {
+                                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clip.setPrimaryClip(ClipData.newPlainText("Archive Page", cartoon.archiveDetailsUrl))
+                                        Toast.makeText(context, "Archive page URL copied", Toast.LENGTH_SHORT).show()
+                                    }
                                 },
                                 border = androidx.compose.foundation.BorderStroke(
                                     width = if (sourceFocused) 2.dp else 1.dp,
@@ -415,9 +428,13 @@ fun CartoonDetailDialog(
 
                             OutlinedButton(
                                 onClick = {
-                                    val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clip.setPrimaryClip(ClipData.newPlainText("Stream URL", cartoon.getResolvedStreamUrl()))
-                                    Toast.makeText(context, "Stream link copied", Toast.LENGTH_SHORT).show()
+                                    if (onCopyStreamUrl != null) {
+                                        onCopyStreamUrl(cartoon)
+                                    } else {
+                                        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        clip.setPrimaryClip(ClipData.newPlainText("Stream URL", cartoon.getResolvedStreamUrl()))
+                                        Toast.makeText(context, "Stream link copied", Toast.LENGTH_SHORT).show()
+                                    }
                                 },
                                 border = androidx.compose.foundation.BorderStroke(
                                     width = if (copyFocused) 2.dp else 1.dp,

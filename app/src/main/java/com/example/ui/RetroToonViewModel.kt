@@ -1,9 +1,14 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.donation.DonationManager
+import com.example.data.download.DownloadHelper
 import com.example.data.engagement.AppSuggestion
 import com.example.data.engagement.EngagementManager
 import com.example.data.model.CartoonItem
@@ -380,14 +385,27 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
         searchJob = viewModelScope.launch {
             delay(400) // Debounce
             _uiState.value = _uiState.value.copy(isSearching = true)
-            val archiveQuery = if (query.contains(":")) {
-                query
+            val trimmed = query.trim()
+            val localMatches = (_uiState.value.featuredList +
+                    _uiState.value.supermanList +
+                    _uiState.value.popeyeList +
+                    _uiState.value.bettyList +
+                    _uiState.value.serialsList)
+                .distinctBy { it.id }
+                .filter {
+                    it.title.contains(trimmed, ignoreCase = true) ||
+                            it.creator.contains(trimmed, ignoreCase = true) ||
+                            it.description.contains(trimmed, ignoreCase = true)
+                }
+            val archiveQuery = if (trimmed.contains(":")) {
+                trimmed
             } else {
-                "title:($query) AND mediatype:(movies)"
+                "title:($trimmed) AND mediatype:(movies) AND (collection:(animationandcartoons) OR collection:(classic_tv) OR collection:(feature_films) OR subject:(cartoon) OR subject:(animation))"
             }
-            val results = repository.searchCartoons(archiveQuery)
+            val remoteResults = repository.searchCartoons(archiveQuery)
+            val combinedResults = (localMatches + remoteResults).distinctBy { it.id }
             _uiState.value = _uiState.value.copy(
-                searchResults = results,
+                searchResults = combinedResults,
                 isSearching = false
             )
         }
@@ -453,5 +471,27 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
     fun onSupporterStatusUpdated(tier: String) {
         donationManager.markAsSupporter(tier)
         updateSupporterAndBannerState()
+    }
+
+    fun downloadCartoon(item: CartoonItem) {
+        val appContext = getApplication<Application>()
+        viewModelScope.launch {
+            val candidates = repository.resolveAllStreamUrls(item)
+            val resolvedUrl = candidates.firstOrNull() ?: item.getResolvedStreamUrl()
+            DownloadHelper(appContext).downloadCartoon(item, resolvedUrl)
+        }
+    }
+
+    fun copyStreamUrl(item: CartoonItem) {
+        val appContext = getApplication<Application>()
+        viewModelScope.launch {
+            val candidates = repository.resolveAllStreamUrls(item)
+            val resolvedUrl = candidates.firstOrNull() ?: item.getResolvedStreamUrl()
+            try {
+                val clip = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clip.setPrimaryClip(ClipData.newPlainText("Stream URL", resolvedUrl))
+                Toast.makeText(appContext, "Direct MP4 link copied", Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {}
+        }
     }
 }

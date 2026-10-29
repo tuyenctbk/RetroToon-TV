@@ -90,6 +90,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -152,9 +155,9 @@ fun HomeScreen(
                 onOpenDonation = onOpenDonation
             )
 
-            // Top-Level Instant Search Bar (hidden on Search tab where dedicated search bar is shown)
+            // Top-Level Instant Search Bar (shown on mobile portrait when not on Search tab; on TV/wide screens the Header Search pill is used to avoid D-Pad keyboard traps)
             AnimatedVisibility(
-                visible = uiState.currentTab != "search",
+                visible = !isWideScreen && uiState.currentTab != "search",
                 enter = fadeIn(tween(220)),
                 exit = fadeOut(tween(180))
             ) {
@@ -178,7 +181,9 @@ fun HomeScreen(
                             Text(
                                 text = stringResource(R.string.search_placeholder),
                                 color = Color.White.copy(alpha = 0.5f),
-                                fontSize = 13.sp
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         },
                         leadingIcon = {
@@ -303,13 +308,16 @@ fun RetroMarqueeHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Brand Logo
+            // Brand Logo (clickable on touch devices; on TV, "Featured" nav pill handles Home navigation so the logo doesn't steal D-Pad focus)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .weight(1f, fill = false)
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { onTabSelected("home") }
+                    .then(
+                        if (!isWideScreen) Modifier.clickable { onTabSelected("home") }
+                        else Modifier
+                    )
                     .testTag("brand_logo_button")
             ) {
                 Surface(
@@ -410,17 +418,26 @@ fun RetroMarqueeHeader(
                             }
                         }
                     } else {
+                        var supportFocused by remember { mutableStateOf(false) }
                         IconButton(
                             onClick = onOpenDonation,
                             modifier = Modifier
                                 .size(38.dp)
-                                .background(RetroRuby.copy(alpha = 0.15f), CircleShape)
+                                .onFocusChanged { supportFocused = it.isFocused }
+                                .background(
+                                    if (supportFocused) RetroGold else RetroRuby.copy(alpha = 0.15f),
+                                    CircleShape
+                                )
+                                .then(
+                                    if (supportFocused) Modifier.border(2.dp, Color.White, CircleShape)
+                                    else Modifier
+                                )
                                 .testTag("nav_support_header_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.VolunteerActivism,
                                 contentDescription = "Support Development",
-                                tint = RetroGold,
+                                tint = if (supportFocused) CinemaBlack else RetroGold,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -449,17 +466,26 @@ fun RetroMarqueeHeader(
                             }
                         }
                     } else {
+                        var supportFocused by remember { mutableStateOf(false) }
                         IconButton(
                             onClick = onOpenDonation,
                             modifier = Modifier
                                 .size(38.dp)
-                                .background(RetroRuby.copy(alpha = 0.15f), CircleShape)
+                                .onFocusChanged { supportFocused = it.isFocused }
+                                .background(
+                                    if (supportFocused) RetroGold else RetroRuby.copy(alpha = 0.15f),
+                                    CircleShape
+                                )
+                                .then(
+                                    if (supportFocused) Modifier.border(2.dp, Color.White, CircleShape)
+                                    else Modifier
+                                )
                                 .testTag("nav_support_header_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.VolunteerActivism,
                                 contentDescription = "Support Development",
-                                tint = RetroGold,
+                                tint = if (supportFocused) CinemaBlack else RetroGold,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -545,8 +571,7 @@ fun RetroBottomNavBar(
         NavigationBar(
             containerColor = CinemaDark,
             contentColor = Color.White,
-            tonalElevation = 0.dp,
-            modifier = Modifier.height(64.dp)
+            tonalElevation = 0.dp
         ) {
             NavigationBarItem(
                 selected = activeTab == "home",
@@ -680,7 +705,6 @@ fun NavPillButton(
         border = if (isFocused) androidx.compose.foundation.BorderStroke(2.dp, Color.White) else null,
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(onClick = onClick)
             .testTag(tag)
@@ -848,7 +872,6 @@ fun HomeCatalogView(
                                 .heightIn(min = 40.dp)
                                 .clip(RoundedCornerShape(20.dp))
                                 .onFocusChanged { isFocused = it.isFocused }
-                                .focusable()
                                 .clickable { onCategoryFilterSelected(cat.key) }
                                 .testTag("category_chip_${cat.key.lowercase()}")
                         ) {
@@ -934,10 +957,14 @@ fun HomeCatalogView(
                                     )
                                 }
 
+                                var clearFilterFocused by remember { mutableStateOf(false) }
                                 TextButton(
                                     onClick = { onCategoryFilterSelected("ALL") },
                                     colors = ButtonDefaults.textButtonColors(contentColor = RetroGold),
-                                    modifier = Modifier.testTag("clear_filter_button")
+                                    border = if (clearFilterFocused) androidx.compose.foundation.BorderStroke(1.5.dp, RetroGold) else null,
+                                    modifier = Modifier
+                                        .onFocusChanged { clearFilterFocused = it.isFocused }
+                                        .testTag("clear_filter_button")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Clear,
@@ -1070,20 +1097,38 @@ fun HeroBillboard(
     featuredOptions: List<CartoonItem>,
     onSelectHero: (CartoonItem) -> Unit
 ) {
-    // Auto-cycle hero if idle
-    LaunchedEffect(cartoon.id) {
-        delay(9000)
-        val currentIndex = featuredOptions.indexOfFirst { it.id == cartoon.id }
-        if (currentIndex != -1 && featuredOptions.isNotEmpty()) {
-            val nextIndex = (currentIndex + 1) % featuredOptions.size
-            onSelectHero(featuredOptions[nextIndex])
+    val heroPlayFocusRequester = remember { FocusRequester() }
+    var playFocused by remember { mutableStateOf(false) }
+    var listFocused by remember { mutableStateOf(false) }
+    var shuffleFocused by remember { mutableStateOf(false) }
+    var detailsFocused by remember { mutableStateOf(false) }
+    val isSecondaryActionFocused = listFocused || shuffleFocused || detailsFocused
+
+    LaunchedEffect(isWideScreen) {
+        if (isWideScreen) {
+            delay(280)
+            try {
+                heroPlayFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
+    // Auto-cycle hero if idle (pauses if TV user is actively inspecting secondary hero buttons)
+    LaunchedEffect(cartoon.id, isSecondaryActionFocused) {
+        if (!isSecondaryActionFocused) {
+            delay(9500)
+            val currentIndex = featuredOptions.indexOfFirst { it.id == cartoon.id }
+            if (currentIndex != -1 && featuredOptions.isNotEmpty()) {
+                val nextIndex = (currentIndex + 1) % featuredOptions.size
+                onSelectHero(featuredOptions[nextIndex])
+            }
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (isWideScreen) 400.dp else 340.dp)
+            .height(if (isWideScreen) 248.dp else 310.dp)
             .background(CinemaDark)
             .testTag("hero_billboard")
     ) {
@@ -1138,59 +1183,68 @@ fun HeroBillboard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = if (isWideScreen) 32.dp else 20.dp, vertical = 20.dp),
+                .padding(horizontal = if (isWideScreen) 32.dp else 20.dp, vertical = if (isWideScreen) 14.dp else 18.dp),
             verticalArrangement = Arrangement.Bottom
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Surface(
-                    color = RetroRuby,
-                    shape = RoundedCornerShape(4.dp)
-                ) {
+            Crossfade(
+                targetState = cartoon,
+                animationSpec = tween(420),
+                label = "hero_text_crossfade"
+            ) { activeHero ->
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            color = RetroRuby,
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "LEANBACK FEATURED",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+
+                        Text(
+                            text = "${activeHero.year} • ${activeHero.creator}",
+                            color = RetroGold,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Title
                     Text(
-                        text = "LEANBACK FEATURED",
+                        text = activeHero.title,
                         color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                        fontSize = if (isWideScreen) 24.sp else 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = if (isWideScreen) 1 else 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Description
+                    Text(
+                        text = activeHero.description,
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.5.sp,
+                        lineHeight = 17.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 620.dp)
                     )
                 }
-
-                Text(
-                    text = "${cartoon.year} • ${cartoon.creator}",
-                    color = RetroGold,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Title
-            Text(
-                text = cartoon.title,
-                color = Color.White,
-                fontSize = if (isWideScreen) 30.sp else 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Description
-            Text(
-                text = cartoon.description,
-                color = Color.White.copy(alpha = 0.85f),
-                fontSize = 13.sp,
-                maxLines = if (isWideScreen) 3 else 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 620.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(if (isWideScreen) 12.dp else 14.dp))
 
             // Action Buttons & Switcher
             if (isWideScreen) {
@@ -1200,11 +1254,6 @@ fun HeroBillboard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        var playFocused by remember { mutableStateOf(false) }
-                        var listFocused by remember { mutableStateOf(false) }
-                        var shuffleFocused by remember { mutableStateOf(false) }
-                        var detailsFocused by remember { mutableStateOf(false) }
-
                         Button(
                             onClick = onPlay,
                             colors = ButtonDefaults.buttonColors(
@@ -1214,6 +1263,7 @@ fun HeroBillboard(
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
                                 .height(46.dp)
+                                .focusRequester(heroPlayFocusRequester)
                                 .onFocusChanged { playFocused = it.isFocused }
                                 .then(
                                     if (playFocused) Modifier.border(2.5.dp, Color.White, RoundedCornerShape(8.dp))
@@ -1314,6 +1364,7 @@ fun HeroBillboard(
                                     .width(dotWidth)
                                     .clip(CircleShape)
                                     .background(if (isCurrent) RetroGold else Color.White.copy(alpha = 0.35f))
+                                    .focusProperties { canFocus = false }
                                     .clickable { onSelectHero(opt) }
                             )
                         }
@@ -1597,11 +1648,10 @@ fun CartoonPosterCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .focusable()
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(onClick = onClick)
             .border(
-                width = if (isFocused) 2.dp else 1.dp,
+                width = if (isFocused) 2.5.dp else 1.dp,
                 color = if (isFocused) RetroGold else CinemaBorder,
                 shape = RoundedCornerShape(12.dp)
             )
@@ -1688,41 +1738,54 @@ fun CartoonPosterCard(
                     )
                 }
 
-                // Watchlist & optional Remove from History buttons top-right
+                // Watchlist & optional Remove from History compact circular badges top-right
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        .padding(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (onRemoveRecent != null) {
-                        IconButton(
-                            onClick = onRemoveRecent,
+                        Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(30.dp)
-                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.68f))
+                                .border(0.75.dp, Color.White.copy(alpha = 0.22f), CircleShape)
+                                .focusProperties { canFocus = false }
+                                .clickable(onClick = onRemoveRecent)
                                 .testTag("remove_recent_${cartoon.id}")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
                                 contentDescription = "Remove from History",
-                                tint = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.size(15.dp)
+                                tint = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                     }
 
-                    IconButton(
-                        onClick = onToggleWatchlist,
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(32.dp)
-                            .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.68f))
+                            .border(
+                                0.75.dp,
+                                if (cartoon.isFavorite) RetroGold.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.22f),
+                                CircleShape
+                            )
+                            .focusProperties { canFocus = false }
+                            .clickable(onClick = onToggleWatchlist)
                     ) {
                         Icon(
                             imageVector = if (cartoon.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                             contentDescription = "Watchlist",
                             tint = if (cartoon.isFavorite) RetroGold else Color.White,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
                 }
@@ -1742,8 +1805,7 @@ fun CartoonPosterCard(
                         .size(if (isFocused) 42.dp else 36.dp)
                         .clip(CircleShape)
                         .background(playBtnBg)
-                        .border(1.dp, RetroGold.copy(alpha = 0.65f), CircleShape)
-                        .clickable { onPlay() },
+                        .border(1.dp, RetroGold.copy(alpha = 0.65f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -1806,40 +1868,129 @@ fun SearchView(
     onToggleWatchlist: (CartoonItem) -> Unit
 ) {
     val quickPills = listOf("Superman", "Popeye", "Betty Boop", "Felix the Cat", "Buster Keaton", "Casper", "Little Audrey")
+    val firstPillFocusRequester = remember { FocusRequester() }
+    val tvTextFieldFocusRequester = remember { FocusRequester() }
+    var isTvKeyboardActive by remember { mutableStateOf(false) }
+    var tvSearchBarFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isWideScreen) {
+        if (isWideScreen) {
+            delay(280)
+            try {
+                firstPillFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
+    LaunchedEffect(isTvKeyboardActive) {
+        if (isTvKeyboardActive) {
+            delay(80)
+            try {
+                tvTextFieldFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(if (isWideScreen) 28.dp else 16.dp)
     ) {
-        // Search Input
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onQueryChange,
-            placeholder = { Text("Search Internet Archive public domain cartoons, characters, serials...") },
-            leadingIcon = {
-                Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = RetroGold)
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+        // Search Input (on TV, activates keyboard only on D-Pad Center so Up/Down navigation never gets trapped by IME)
+        if (isWideScreen && !isTvKeyboardActive) {
+            Surface(
+                color = CinemaDark,
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    width = if (tvSearchBarFocused) 2.dp else 1.dp,
+                    color = if (tvSearchBarFocused) RetroGold else CinemaBorder
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .onFocusChanged { tvSearchBarFocused = it.isFocused }
+                    .clickable { isTvKeyboardActive = true }
+                    .testTag("search_text_field")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = RetroGold)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = searchQuery.ifEmpty {
+                                "Press OK to type, or select a quick tag below..."
+                            },
+                            color = if (searchQuery.isEmpty()) Color.White.copy(alpha = 0.6f) else Color.White,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { onQueryChange("") },
+                            modifier = Modifier.focusProperties { canFocus = false }
+                        ) {
+                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                        }
                     }
                 }
-            },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = RetroGold,
-                unfocusedBorderColor = CinemaBorder,
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedContainerColor = CinemaDark,
-                unfocusedContainerColor = CinemaDark
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("search_text_field")
-        )
+            }
+        } else {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onQueryChange,
+                placeholder = {
+                    Text(
+                        text = "Search Internet Archive public domain cartoons, characters, serials...",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = RetroGold)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { onQueryChange("") },
+                            modifier = Modifier.focusProperties { canFocus = false }
+                        ) {
+                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                        }
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = RetroGold,
+                    unfocusedBorderColor = CinemaBorder,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedContainerColor = CinemaDark,
+                    unfocusedContainerColor = CinemaDark
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (isWideScreen) Modifier.focusRequester(tvTextFieldFocusRequester) else Modifier)
+                    .onFocusChanged {
+                        if (isWideScreen && !it.isFocused) {
+                            isTvKeyboardActive = false
+                        }
+                    }
+                    .testTag("search_text_field")
+            )
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -1847,6 +1998,7 @@ fun SearchView(
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(quickPills) { pill ->
                 val isSelected = searchQuery.equals(pill, ignoreCase = true)
+                val isFirst = pill == quickPills.first()
                 var pillFocused by remember { mutableStateOf(false) }
                 Surface(
                     color = when {
@@ -1861,8 +2013,8 @@ fun SearchView(
                     } else null,
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
+                        .then(if (isFirst) Modifier.focusRequester(firstPillFocusRequester) else Modifier)
                         .onFocusChanged { pillFocused = it.isFocused }
-                        .focusable()
                         .clickable { onQueryChange(pill) }
                         .testTag("search_pill_${pill.lowercase().replace(" ", "_")}")
                 ) {

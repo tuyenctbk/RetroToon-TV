@@ -23,6 +23,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -46,10 +47,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -124,8 +129,13 @@ fun RetroSplashScreen(
         label = "marqueePulse"
     )
 
+    val enterFocusRequester = remember { FocusRequester() }
+
     // Countdown sequence: 3 -> 2 -> 1 -> ★ -> Finish
     LaunchedEffect(Unit) {
+        try {
+            enterFocusRequester.requestFocus()
+        } catch (_: Exception) {}
         delay(700)
         countdown = 2
         delay(700)
@@ -136,7 +146,7 @@ fun RetroSplashScreen(
         onFinished()
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(CinemaBlack)
@@ -150,6 +160,9 @@ fun RetroSplashScreen(
             .testTag("retro_splash_screen"),
         contentAlignment = Alignment.Center
     ) {
+        val isCompactHeight = maxHeight < 560.dp
+        val dialSize = if (isCompactHeight) 144.dp else 196.dp
+        val spacingMedium = if (isCompactHeight) 12.dp else 22.dp
         // Warm projector radial spotlight + vintage vertical film scratches
         Canvas(modifier = Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height * 0.42f)
@@ -232,11 +245,11 @@ fun RetroSplashScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(modifier = Modifier.height(spacingMedium))
 
             // Vintage SMPTE Film Reel Countdown Target
             Box(
-                modifier = Modifier.size(196.dp),
+                modifier = Modifier.size(dialSize),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -362,31 +375,50 @@ fun RetroSplashScreen(
                     Text(
                         text = if (currentCount > 0) currentCount.toString() else "★",
                         color = if (currentCount > 0) RetroCream else RetroGold,
-                        fontSize = 68.sp,
+                        fontSize = if (isCompactHeight) 50.sp else 68.sp,
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Serif
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(26.dp))
+            Spacer(modifier = Modifier.height(spacingMedium))
 
-            // Golden Age Marquee Brand Frame
+            // Golden Age Marquee Brand Frame with Animated Chase Bulbs
+            val chaseStep = ((sprocketPhase * 3f).toInt()) % 3
             Surface(
                 color = CinemaDark,
                 shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.5.dp, RetroGold.copy(alpha = 0.65f)),
+                border = BorderStroke(1.5.dp, RetroGold.copy(alpha = 0.75f)),
                 tonalElevation = 8.dp
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp)
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
                 ) {
+                    // Top Marquee Bulb Row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        repeat(13) { idx ->
+                            val isLit = (idx % 3) == chaseStep
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isLit) 5.dp else 4.dp)
+                                    .background(
+                                        color = if (isLit) RetroCream else RetroGold.copy(alpha = 0.35f),
+                                        shape = CircleShape
+                                    )
+                            )
+                        }
+                    }
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             color = RetroRuby,
                             shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, RetroGold.copy(alpha = 0.8f)),
+                            border = BorderStroke(1.dp, RetroGold.copy(alpha = 0.85f)),
                             modifier = Modifier.size(42.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
@@ -409,7 +441,8 @@ fun RetroSplashScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             color = RetroRuby,
-                            shape = RoundedCornerShape(6.dp)
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, RetroGold.copy(alpha = 0.7f))
                         ) {
                             Text(
                                 text = "TV",
@@ -430,6 +463,24 @@ fun RetroSplashScreen(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.6.sp
                     )
+
+                    // Bottom Marquee Bulb Row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) {
+                        repeat(13) { idx ->
+                            val isLit = ((12 - idx) % 3) == chaseStep
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isLit) 5.dp else 4.dp)
+                                    .background(
+                                        color = if (isLit) RetroCream else RetroGold.copy(alpha = 0.35f),
+                                        shape = CircleShape
+                                    )
+                            )
+                        }
+                    }
                 }
             }
 
@@ -442,19 +493,22 @@ fun RetroSplashScreen(
                 fontWeight = FontWeight.Medium
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(spacingMedium))
 
             // Skip / Enter Button
+            var enterFocused by remember { mutableStateOf(false) }
             Button(
                 onClick = onFinished,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = RetroGold,
                     contentColor = CinemaBlack
                 ),
+                border = if (enterFocused) BorderStroke(2.dp, Color.White) else null,
                 shape = RoundedCornerShape(24.dp),
                 modifier = Modifier
                     .height(44.dp)
-                    .focusable()
+                    .focusRequester(enterFocusRequester)
+                    .onFocusChanged { enterFocused = it.isFocused }
                     .testTag("splash_enter_button")
             ) {
                 Icon(

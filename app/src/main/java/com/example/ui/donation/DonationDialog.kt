@@ -50,6 +50,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,17 +59,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import kotlinx.coroutines.delay
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.donation.DonationManager
 import com.example.data.donation.DonationTier
 import com.example.ui.theme.CinemaBlack
@@ -87,26 +95,34 @@ fun DonationDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedPresetAmount by remember { mutableIntStateOf(5) }
     var thankYouMessage by remember { mutableStateOf<String?>(null) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    LaunchedEffect(Unit) {
+        keyboardController?.hide()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = CinemaDark,
             tonalElevation = 12.dp,
             modifier = Modifier
                 .widthIn(max = 520.dp)
-                .fillMaxWidth(0.95f)
-                .heightIn(max = 580.dp)
+                .fillMaxWidth(0.92f)
+                .heightIn(max = 600.dp)
                 .border(1.5.dp, RetroGold.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
                 .testTag("donation_dialog")
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
                     .verticalScroll(rememberScrollState())
             ) {
                 // Header with close button
@@ -115,7 +131,10 @@ fun DonationDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Surface(
                             color = RetroRuby.copy(alpha = 0.2f),
                             shape = CircleShape,
@@ -131,18 +150,22 @@ fun DonationDialog(
                             }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Support Indie Preservation",
                                 color = Color.White,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = "100% Free • Ad-Free • Public Domain",
                                 color = RetroGold,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -245,24 +268,63 @@ fun DonationDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
                 ) {
+                    var tab0Focused by remember { mutableStateOf(false) }
+                    var tab1Focused by remember { mutableStateOf(false) }
+                    var tab2Focused by remember { mutableStateOf(false) }
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        text = { Text("Google Play", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                        modifier = Modifier
+                            .onFocusChanged { tab0Focused = it.isFocused }
+                            .then(if (tab0Focused) Modifier.border(1.5.dp, Color.White, RoundedCornerShape(8.dp)) else Modifier),
+                        text = {
+                            Text(
+                                "Google Play",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        text = { Text("PayPal / QR", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                        modifier = Modifier
+                            .onFocusChanged { tab1Focused = it.isFocused }
+                            .then(if (tab1Focused) Modifier.border(1.5.dp, Color.White, RoundedCornerShape(8.dp)) else Modifier),
+                        text = {
+                            Text(
+                                "PayPal / QR",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     )
                     Tab(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
-                        text = { Text("Ko-fi Tip", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                        modifier = Modifier
+                            .onFocusChanged { tab2Focused = it.isFocused }
+                            .then(if (tab2Focused) Modifier.border(1.5.dp, Color.White, RoundedCornerShape(8.dp)) else Modifier),
+                        text = {
+                            Text(
+                                "Ko-fi Tip",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 when (selectedTab) {
                     0 -> GooglePlayTiersView(
@@ -298,14 +360,14 @@ fun DonationDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Non-intrusive guarantee note
                 Text(
                     text = "Voluntary contributions keep RetroToon TV 100% ad-free and assist in digitizing rare Fleischer & Van Beuren cartoons.",
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 11.sp,
-                    lineHeight = 15.sp,
+                    lineHeight = 14.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -319,8 +381,16 @@ private fun GooglePlayTiersView(
     tiers: List<DonationTier>,
     onSelectTier: (DonationTier) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        tiers.forEach { tier ->
+    val firstTierFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        delay(120)
+        try {
+            firstTierFocusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        tiers.forEachIndexed { index, tier ->
             var tierFocused by remember { mutableStateOf(false) }
             Card(
                 colors = CardDefaults.cardColors(containerColor = CinemaSurface),
@@ -331,15 +401,15 @@ private fun GooglePlayTiersView(
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .then(if (index == 0) Modifier.focusRequester(firstTierFocusRequester) else Modifier)
                     .onFocusChanged { tierFocused = it.isFocused }
-                    .focusable()
                     .clickable { onSelectTier(tier) }
                     .testTag("tier_${tier.id}")
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -347,23 +417,29 @@ private fun GooglePlayTiersView(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(text = tier.iconEmoji, fontSize = 24.sp)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
+                        Text(text = tier.iconEmoji, fontSize = 22.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = tier.title,
-                                color = Color.White,
+                                color = if (tierFocused) RetroGold else Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontSize = 13.5.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = tier.description,
                                 color = Color.White.copy(alpha = 0.65f),
                                 fontSize = 11.sp,
-                                maxLines = 1
+                                lineHeight = 14.sp,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(10.dp))
 
                     Button(
                         onClick = { onSelectTier(tier) },
@@ -372,9 +448,11 @@ private fun GooglePlayTiersView(
                             contentColor = CinemaBlack
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(36.dp)
+                        modifier = Modifier
+                            .height(34.dp)
+                            .focusProperties { canFocus = false }
                     ) {
-                        Text(tier.price, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(tier.price, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
                     }
                 }
             }
@@ -409,16 +487,22 @@ private fun PayPalView(
         ) {
             listOf(3, 5, 10, 20).forEach { amount ->
                 val isSelected = selectedAmount == amount
+                var chipFocused by remember { mutableStateOf(false) }
                 Surface(
                     color = if (isSelected) RetroGold else CinemaSurface,
                     contentColor = if (isSelected) CinemaBlack else Color.White,
                     shape = RoundedCornerShape(8.dp),
                     border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (isSelected) RetroGold else CinemaBorder
+                        if (chipFocused) 2.dp else 1.dp,
+                        when {
+                            chipFocused -> Color.White
+                            isSelected -> RetroGold
+                            else -> CinemaBorder
+                        }
                     ),
                     modifier = Modifier
                         .weight(1f)
+                        .onFocusChanged { chipFocused = it.isFocused }
                         .clickable { onSelectAmount(amount) }
                 ) {
                     Box(
@@ -490,29 +574,42 @@ private fun PayPalView(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            var openPayPalFocused by remember { mutableStateOf(false) }
+            var copyPayPalFocused by remember { mutableStateOf(false) }
             Button(
                 onClick = onOpenPayPal,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF0070BA),
                     contentColor = Color.White
                 ),
+                border = if (openPayPalFocused) androidx.compose.foundation.BorderStroke(2.dp, RetroGold) else null,
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1.4f).height(42.dp)
+                modifier = Modifier
+                    .weight(1.4f)
+                    .height(42.dp)
+                    .onFocusChanged { openPayPalFocused = it.isFocused }
             ) {
                 Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Open PayPal", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Open PayPal", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
             }
 
             OutlinedButton(
                 onClick = onCopyLink,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                border = androidx.compose.foundation.BorderStroke(
+                    if (copyPayPalFocused) 2.dp else 1.dp,
+                    if (copyPayPalFocused) RetroGold else Color.White.copy(alpha = 0.4f)
+                ),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1f).height(42.dp)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(42.dp)
+                    .onFocusChanged { copyPayPalFocused = it.isFocused }
             ) {
                 Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Copy", fontSize = 12.sp)
+                Text("Copy", fontSize = 12.sp, maxLines = 1, softWrap = false)
             }
         }
     }
@@ -568,29 +665,42 @@ private fun KofiView(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            var openKofiFocused by remember { mutableStateOf(false) }
+            var copyKofiFocused by remember { mutableStateOf(false) }
             Button(
                 onClick = onOpenKofi,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFFF5E5B),
                     contentColor = Color.White
                 ),
+                border = if (openKofiFocused) androidx.compose.foundation.BorderStroke(2.dp, RetroGold) else null,
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1.4f).height(42.dp)
+                modifier = Modifier
+                    .weight(1.4f)
+                    .height(42.dp)
+                    .onFocusChanged { openKofiFocused = it.isFocused }
             ) {
                 Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Tip on Ko-fi", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Tip on Ko-fi", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
             }
 
             OutlinedButton(
                 onClick = onCopyKofi,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                border = androidx.compose.foundation.BorderStroke(
+                    if (copyKofiFocused) 2.dp else 1.dp,
+                    if (copyKofiFocused) RetroGold else Color.White.copy(alpha = 0.4f)
+                ),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1f).height(42.dp)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(42.dp)
+                    .onFocusChanged { copyKofiFocused = it.isFocused }
             ) {
                 Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Copy Link", fontSize = 12.sp)
+                Text("Copy Link", fontSize = 12.sp, maxLines = 1, softWrap = false)
             }
         }
     }

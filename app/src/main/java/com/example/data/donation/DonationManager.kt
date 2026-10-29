@@ -1,9 +1,12 @@
 package com.example.data.donation
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import android.widget.Toast
 
 data class DonationTier(
     val id: String,
@@ -131,6 +134,12 @@ class DonationManager(private val context: Context) {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            try {
+                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("Donation Link", url))
+                Toast.makeText(context, "No browser found — link copied: $url", Toast.LENGTH_LONG).show()
+            } catch (_: Exception) {}
+        }
     }
 }

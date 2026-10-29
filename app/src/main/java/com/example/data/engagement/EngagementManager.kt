@@ -32,6 +32,7 @@ class EngagementManager(private val context: Context) {
         private const val KEY_RATE_DISMISSED = "rate_dismissed_forever"
         private const val KEY_RATE_COMPLETED = "rate_completed"
         private const val KEY_SHARE_DISMISSED = "share_dismissed"
+        private const val KEY_UPDATE_DISMISSED = "update_dismissed_forever"
 
         // Min 7 days cooldown between any prompt to ensure users are never bothered frequently
         private const val COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000L
@@ -68,6 +69,7 @@ class EngagementManager(private val context: Context) {
         val rateDismissed = prefs.getBoolean(KEY_RATE_DISMISSED, false)
         val rateCompleted = prefs.getBoolean(KEY_RATE_COMPLETED, false)
         val shareDismissed = prefs.getBoolean(KEY_SHARE_DISMISSED, false)
+        val updateDismissed = prefs.getBoolean(KEY_UPDATE_DISMISSED, false)
 
         // Rule 3: Positive milestone 1 - User completed watching multiple classic shorts (at least 3)
         if (shortsWatched >= 3 && !rateCompleted && !rateDismissed) {
@@ -92,7 +94,7 @@ class EngagementManager(private val context: Context) {
         }
 
         // Rule 5: Loyal user update confirmation after many sessions (at least 8)
-        if (sessions >= 8 && (now - lastPrompt >= 14 * 24 * 60 * 60 * 1000L)) {
+        if (sessions >= 8 && !updateDismissed && (now - lastPrompt >= 14 * 24 * 60 * 60 * 1000L)) {
             return AppSuggestion(
                 type = SuggestionType.CHECK_UPDATE,
                 title = "RetroToon TV is Up-to-Date",
@@ -135,11 +137,11 @@ class EngagementManager(private val context: Context) {
     }
 
     fun dismissForever(type: SuggestionType) {
-        val editor = prefs.edit()
+        val editor = prefs.edit().putLong(KEY_LAST_PROMPT_TIME, System.currentTimeMillis())
         when (type) {
             SuggestionType.RATE_APP -> editor.putBoolean(KEY_RATE_DISMISSED, true)
             SuggestionType.SHARE_APP -> editor.putBoolean(KEY_SHARE_DISMISSED, true)
-            else -> {}
+            SuggestionType.CHECK_UPDATE -> editor.putBoolean(KEY_UPDATE_DISMISSED, true)
         }
         editor.apply()
     }
@@ -152,26 +154,30 @@ class EngagementManager(private val context: Context) {
             }
             context.startActivity(intent)
         } catch (_: Exception) {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (_: Exception) {}
         }
     }
 
     private fun launchShareSheet() {
-        val sendIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(
-                Intent.EXTRA_TEXT,
-                "Stream classic 1930s-1950s public domain cartoons (Superman 1941, Popeye, Betty Boop, Buster Keaton) for free with RetroToon TV! https://play.google.com/store/apps/details?id=${context.packageName}"
-            )
-            type = "text/plain"
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        val shareIntent = Intent.createChooser(sendIntent, "Share RetroToon TV").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(shareIntent)
+        try {
+            val sendIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(
+                    Intent.EXTRA_TEXT,
+                    "Stream classic 1930s-1950s public domain cartoons (Superman 1941, Popeye, Betty Boop, Buster Keaton) for free with RetroToon TV! https://play.google.com/store/apps/details?id=${context.packageName}"
+                )
+                type = "text/plain"
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            val shareIntent = Intent.createChooser(sendIntent, "Share RetroToon TV").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(shareIntent)
+        } catch (_: Exception) {}
     }
 }
