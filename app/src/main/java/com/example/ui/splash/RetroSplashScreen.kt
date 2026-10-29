@@ -160,9 +160,18 @@ fun RetroSplashScreen(
             .testTag("retro_splash_screen"),
         contentAlignment = Alignment.Center
     ) {
-        val isCompactHeight = maxHeight < 560.dp
-        val dialSize = if (isCompactHeight) 144.dp else 196.dp
-        val spacingMedium = if (isCompactHeight) 12.dp else 22.dp
+        val isUltraShort = maxHeight < 430.dp
+        val isCompactHeight = maxHeight < 580.dp
+        val dialSize = when {
+            isUltraShort -> 96.dp
+            isCompactHeight -> 144.dp
+            else -> 196.dp
+        }
+        val spacingMedium = when {
+            isUltraShort -> 6.dp
+            isCompactHeight -> 12.dp
+            else -> 22.dp
+        }
         // Warm projector radial spotlight + vintage vertical film scratches
         Canvas(modifier = Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height * 0.42f)
@@ -214,7 +223,7 @@ fun RetroSplashScreen(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(horizontal = 40.dp, vertical = 24.dp)
+            modifier = Modifier.padding(horizontal = 40.dp, vertical = if (isUltraShort) 8.dp else 20.dp)
         ) {
             // Top Theater Presenting Pill
             Surface(
@@ -375,7 +384,11 @@ fun RetroSplashScreen(
                     Text(
                         text = if (currentCount > 0) currentCount.toString() else "★",
                         color = if (currentCount > 0) RetroCream else RetroGold,
-                        fontSize = if (isCompactHeight) 50.sp else 68.sp,
+                        fontSize = when {
+                            isUltraShort -> 34.sp
+                            isCompactHeight -> 50.sp
+                            else -> 68.sp
+                        },
                         fontWeight = FontWeight.ExtraBold,
                         fontFamily = FontFamily.Serif
                     )

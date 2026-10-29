@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URLEncoder
 
 import com.example.data.local.WatchlistDao
 import com.example.data.local.WatchlistEntity
@@ -215,30 +216,36 @@ class CartoonRepository(
             ?: "https://archive.org/download/${item.id}/${item.id}_512kb.mp4"
     }
 
+    private fun encodeArchivePath(fileName: String): String {
+        return URLEncoder.encode(fileName, "UTF-8")
+            .replace("+", "%20")
+            .replace("%2F", "/")
+    }
+
     suspend fun resolveAllStreamUrls(item: CartoonItem): List<String> {
         val candidates = mutableListOf<String>()
-        streamUrlCache[item.id]?.takeIf { it.isNotBlank() }?.let { cached ->
+        streamUrlCache[item.id]?.takeIf { it.isNotBlank() && !it.contains(" ") }?.let { cached ->
             candidates.add(cached)
         }
         if (!item.videoStreamUrl.isNullOrBlank() && !candidates.contains(item.videoStreamUrl)) {
             candidates.add(item.videoStreamUrl)
         }
         if (!item.mp4Filename.isNullOrBlank()) {
-            val mp4Url = "https://archive.org/download/${item.id}/${item.mp4Filename}"
+            val mp4Url = "https://archive.org/download/${item.id}/${encodeArchivePath(item.mp4Filename)}"
             if (!candidates.contains(mp4Url)) {
                 candidates.add(mp4Url)
             }
         }
         val remoteFiles = apiClient.resolveMp4Files(item.id)
         for (f in remoteFiles) {
-            val u = "https://archive.org/download/${item.id}/$f"
+            val u = "https://archive.org/download/${item.id}/${encodeArchivePath(f)}"
             if (!candidates.contains(u)) {
                 candidates.add(u)
             }
         }
         if (candidates.isEmpty()) {
-            candidates.add("https://archive.org/download/${item.id}/${item.id}_512kb.mp4")
-            candidates.add("https://archive.org/download/${item.id}/${item.id}.mp4")
+            candidates.add("https://archive.org/download/${item.id}/${encodeArchivePath("${item.id}_512kb.mp4")}")
+            candidates.add("https://archive.org/download/${item.id}/${encodeArchivePath("${item.id}.mp4")}")
         }
         if (candidates.isNotEmpty()) {
             streamUrlCache[item.id] = candidates.first()
@@ -318,15 +325,15 @@ class CartoonRepository(
             mp4Filename = "Betty_Boop_Poor_Cinderella_1934_512kb.mp4"
         ),
         CartoonItem(
-            id = "BusterKeatonTheElectricHouse",
-            title = "Buster Keaton: The Electric House",
-            year = "1923",
+            id = "CopsbusterKeaton",
+            title = "Buster Keaton: Cops (Scored Edition)",
+            year = "1922",
             category = "Buster Keaton",
             creator = "Buster Keaton Productions",
-            description = "Mistaken for an electrical engineer, Buster automates an eccentric mansion with hilarious mechanical escalators, sliding dining tables, and chaotic gadgetry.",
-            runtime = "22:45",
+            description = "Accompanied by a lively musical score, Buster accidentally triggers a city-wide police parade chase with slapstick genius.",
+            runtime = "18:15",
             downloads = 190000L,
-            mp4Filename = "Buster Keaton - The Electric House.mp4"
+            mp4Filename = "cops_512kb.mp4"
         ),
         CartoonItem(
             id = "superman_eleventh_hour",
@@ -351,15 +358,15 @@ class CartoonRepository(
             mp4Filename = "popeye_fright_to_the_finish_512kb.mp4"
         ),
         CartoonItem(
-            id = "Felix_The_Goose_That_Laid_The_Golden_Egg_1936",
+            id = "felix_the_cat_the_goos_that_laid_the_golden_egg",
             title = "Felix the Cat: The Goose That Laid the Golden Egg",
             year = "1936",
             category = "Felix the Cat",
             creator = "Van Beuren Studios",
             description = "Felix discovers Goldie, a fabulous goose who produces solid golden eggs. When greedy Captain Kidd captures her, Felix launches a daring rescue.",
             runtime = "7:18",
-            downloads = 160000L,
-            mp4Filename = "Felix_The_Goose_That_Laid_The_Golden_Egg_1936_512kb.mp4"
+            downloads = 224000L,
+            mp4Filename = "felix_the_cat_the_goos_that_laid_the_golden_egg_512kb.mp4"
         ),
         CartoonItem(
             id = "popeye_shuteye_popeye",
@@ -371,6 +378,17 @@ class CartoonRepository(
             runtime = "6:33",
             downloads = 230000L,
             mp4Filename = "popeye_shuteye_popeye_512kb.mp4"
+        ),
+        CartoonItem(
+            id = "woody_woodpecker_pantry_panic",
+            title = "Woody Woodpecker: Pantry Panic",
+            year = "1941",
+            category = "Classic",
+            creator = "Walter Lantz Productions",
+            description = "Snowed in for winter with an empty larder, Woody Woodpecker and a hungry alley cat engage in manic slapstick hijinks.",
+            runtime = "6:52",
+            downloads = 195000L,
+            mp4Filename = "woody_woodpecker_pantry_panic_512kb.mp4"
         )
     )
 
@@ -462,57 +480,77 @@ class CartoonRepository(
             mp4Filename = "Betty_Boop_Poor_Cinderella_1934_512kb.mp4"
         ),
         CartoonItem(
-            id = "BettyBoopMorePep",
-            title = "Betty Boop: More Pep",
-            year = "1936",
+            id = "bb_snow_white",
+            title = "Betty Boop: Snow White",
+            year = "1933",
             category = "Betty Boop",
             creator = "Fleischer Studios",
-            description = "Grampy invents a pep-gas machine that supercharges everything in town into hyperspeed animation.",
-            runtime = "6:14",
-            mp4Filename = "BettyBoopMorePep_512kb.mp4"
+            description = "Surreal jazz masterpiece featuring Cab Calloway's iconic rotoscoped vocal performance of St. James Infirmary Blues.",
+            runtime = "7:08",
+            mp4Filename = "bb_snow_white_512kb.mp4"
         ),
         CartoonItem(
-            id = "Betty_Boop_Rhythm_on_the_Reservation_1939",
-            title = "Rhythm on the Reservation",
-            year = "1939",
+            id = "bb_minnie_the_moocher",
+            title = "Betty Boop: Minnie the Moocher",
+            year = "1932",
             category = "Betty Boop",
             creator = "Fleischer Studios",
-            description = "Betty Boop introduces swing jazz rhythms and big band horns to a festive outdoor gathering.",
-            runtime = "5:48",
-            mp4Filename = "Betty_Boop_Rhythm_on_the_Reservation_1939_512kb.mp4"
+            description = "Betty and Bimbo venture into a haunted cave where Cab Calloway and His Orchestra perform Minnie the Moocher.",
+            runtime = "7:45",
+            mp4Filename = "bb_minnie_the_moocher_512kb.mp4"
+        ),
+        CartoonItem(
+            id = "bb_and_grampy",
+            title = "Betty Boop and Grampy",
+            year = "1935",
+            category = "Betty Boop",
+            creator = "Fleischer Studios",
+            description = "Betty visits eccentric inventor Grampy, whose musical contraptions turn his house into a swinging dance party.",
+            runtime = "7:05",
+            mp4Filename = "bb_and_grampy_512kb.mp4"
         )
     )
 
     fun getCuratedSerials(): List<CartoonItem> = listOf(
         CartoonItem(
-            id = "BusterKeatonTheElectricHouse",
-            title = "Buster Keaton: The Electric House",
-            year = "1923",
-            category = "Serials & Slapstick",
-            creator = "Buster Keaton",
-            description = "Keaton's legendary gadget comedy featuring mechanical escalators, automated billiards, and comic chaos.",
-            runtime = "22:45",
-            mp4Filename = "Buster Keaton - The Electric House.mp4"
-        ),
-        CartoonItem(
-            id = "Felix_The_Goose_That_Laid_The_Golden_Egg_1936",
+            id = "felix_the_cat_the_goos_that_laid_the_golden_egg",
             title = "Felix: The Goose That Laid The Golden Egg",
             year = "1936",
             category = "Serials & Slapstick",
             creator = "Van Beuren Studios",
-            description = "Felix defends his prize egg-laying goose against pirates and castle guards in vivid early technicolor.",
+            description = "Felix defends his prize egg-laying goose against pirates and castle guards in vivid early Technicolor with orchestral sound.",
             runtime = "7:18",
-            mp4Filename = "Felix_The_Goose_That_Laid_The_Golden_Egg_1936_512kb.mp4"
+            mp4Filename = "felix_the_cat_the_goos_that_laid_the_golden_egg_512kb.mp4"
         ),
         CartoonItem(
-            id = "FelixTheCatBoldKingCole1936",
+            id = "Felix_BoldKingCole",
             title = "Felix: Bold King Cole",
             year = "1936",
             category = "Serials & Slapstick",
             creator = "Van Beuren Studios",
-            description = "Felix encounters the boastful King Cole, who must learn true humility when castle ghosts appear.",
+            description = "Felix encounters the boastful King Cole, who must learn true humility when singing castle ghosts appear.",
             runtime = "7:34",
-            mp4Filename = "FelixTheCatBoldKingCole1936_512kb.mp4"
+            mp4Filename = "Felix_BoldKingCole_512kb.mp4"
+        ),
+        CartoonItem(
+            id = "CopsbusterKeaton",
+            title = "Buster Keaton: Cops (Scored Edition)",
+            year = "1922",
+            category = "Serials & Slapstick",
+            creator = "Buster Keaton",
+            description = "Keaton's legendary slapstick chase classic accompanied by a full ragtime-era musical score.",
+            runtime = "18:15",
+            mp4Filename = "cops_512kb.mp4"
+        ),
+        CartoonItem(
+            id = "disorder_in_the_court",
+            title = "Three Stooges: Disorder in the Court",
+            year = "1936",
+            category = "Serials & Slapstick",
+            creator = "Columbia Pictures",
+            description = "Moe, Larry, and Curly turn a solemn courtroom trial into musical and slapstick pandemonium.",
+            runtime = "16:51",
+            mp4Filename = "disorder_in_the_court_512kb.mp4"
         )
     )
 }

@@ -43,12 +43,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.HighQuality
 import androidx.compose.material.icons.filled.MovieFilter
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PlayArrow
@@ -104,8 +108,12 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.data.model.CartoonItem
@@ -149,6 +157,7 @@ fun RetroPlayerScreen(
 
     val latestCartoon by rememberUpdatedState(cartoon)
     val latestOnSaveProgress by rememberUpdatedState(onSaveProgress)
+    val latestOnRetryStream by rememberUpdatedState(onRetryStream)
 
     LaunchedEffect(cartoon.id) {
         try {
@@ -173,6 +182,15 @@ fun RetroPlayerScreen(
     var seekSliderPosition by remember(cartoon.id) { mutableFloatStateOf(0f) }
     var areSubtitlesEnabled by remember { mutableStateOf(true) }
 
+    // Audio Engine: Optical Loudness Boost + 0-Amplitude Silence Detector + 1920s Theater Piano
+    var audioMode by remember { mutableStateOf(PlayerAudioMode.BOOST) }
+    var isSilentFilmAutoPiano by remember(cartoon.id) { mutableStateOf(false) }
+    var hasTriedAudioFallback by remember(cartoon.id) { mutableStateOf(false) }
+    val silenceDetector = remember { SilenceDetectingAudioProcessor() }
+    val ragtimePiano = remember { RagtimePianoSynthesizer() }
+    val audioBooster = remember { VintageAudioBooster() }
+    val latestAudioMode by rememberUpdatedState(audioMode)
+
     // Gesture animated indicators
     var showRewindGesture by remember { mutableStateOf(false) }
     var showForwardGesture by remember { mutableStateOf(false) }
@@ -180,16 +198,54 @@ fun RetroPlayerScreen(
     // Marathon autoplay countdown
     var marathonCountdown by remember(cartoon.id) { mutableIntStateOf(5) }
 
-    // ExoPlayer initialization with movie audio attributes
+    // ExoPlayer initialization with decoder fallback, silence-detecting AudioSink, and movie audio attributes
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
+        val renderersFactory = object : DefaultRenderersFactory(context) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): AudioSink? {
+                return DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioProcessors(arrayOf(silenceDetector))
+                    .build()
+            }
+        }.setEnableDecoderFallback(true)
+
+        ExoPlayer.Builder(context, renderersFactory).build().apply {
             playWhenReady = true
+            volume = 1f
             val audioAttr = AudioAttributes.Builder()
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .setUsage(C.USAGE_MEDIA)
                 .build()
             setAudioAttributes(audioAttr, true)
+            trackSelectionParameters = trackSelectionParameters
+                .buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                .build()
         }
+    }
+
+    // Sync volume, optical LoudnessEnhancer (+5.5 dB), and 1920s Ragtime Piano score
+    LaunchedEffect(audioMode, isSilentFilmAutoPiano, isPlaying, isBuffering, isEnded, playbackError) {
+        exoPlayer.volume = when (audioMode) {
+            PlayerAudioMode.BOOST, PlayerAudioMode.NORMAL -> 1f
+            PlayerAudioMode.PIANO, PlayerAudioMode.MUTE -> 0f
+        }
+        audioBooster.update(
+            audioSessionId = exoPlayer.audioSessionId,
+            enableBoost = audioMode == PlayerAudioMode.BOOST && !isSilentFilmAutoPiano
+        )
+        val shouldPlayPiano = isPlaying &&
+            !isBuffering &&
+            !isEnded &&
+            playbackError == null &&
+            audioMode != PlayerAudioMode.MUTE &&
+            (audioMode == PlayerAudioMode.PIANO || isSilentFilmAutoPiano)
+        ragtimePiano.setPlaying(shouldPlayPiano)
     }
 
     // Connect streamUrl with rich MediaMetadata & optional sidecar subtitles
@@ -198,6 +254,8 @@ fun RetroPlayerScreen(
             playbackError = null
             isBuffering = true
             isEnded = false
+            isSilentFilmAutoPiano = false
+            silenceDetector.resetForNewMedia()
             val metadata = MediaMetadata.Builder()
                 .setTitle(cartoon.title)
                 .setArtist(cartoon.creator)
@@ -246,6 +304,10 @@ fun RetroPlayerScreen(
                     durationMs = exoPlayer.duration.coerceAtLeast(0L)
                     playbackError = null
                     isEnded = false
+                    audioBooster.update(
+                        audioSessionId = exoPlayer.audioSessionId,
+                        enableBoost = latestAudioMode == PlayerAudioMode.BOOST && !isSilentFilmAutoPiano
+                    )
                     if (durationMs > 0L) {
                         latestOnSaveProgress(latestCartoon.id, exoPlayer.currentPosition.coerceAtLeast(0L), durationMs)
                     }
@@ -254,6 +316,35 @@ fun RetroPlayerScreen(
                     marathonCountdown = 5
                     latestOnSaveProgress(latestCartoon.id, 0L, durationMs)
                 }
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                if (tracks.isEmpty) return
+                val hasSelectedAudio = tracks.isTypeSelected(C.TRACK_TYPE_AUDIO)
+                if (!hasSelectedAudio) {
+                    if (tracks.isTypeSupported(C.TRACK_TYPE_AUDIO)) {
+                        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                            .build()
+                    } else {
+                        // Video container has no supported audio track: try alternate Archive file once, and enable silent-era piano
+                        isSilentFilmAutoPiano = true
+                        if (!hasTriedAudioFallback) {
+                            hasTriedAudioFallback = true
+                            latestOnRetryStream()
+                        }
+                    }
+                } else if (silenceDetector.hasDetectedAudibleAudio()) {
+                    isSilentFilmAutoPiano = false
+                }
+            }
+
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                audioBooster.update(
+                    audioSessionId = audioSessionId,
+                    enableBoost = latestAudioMode == PlayerAudioMode.BOOST && !isSilentFilmAutoPiano
+                )
             }
 
             override fun onIsPlayingChanged(playing: Boolean) {
@@ -268,6 +359,8 @@ fun RetroPlayerScreen(
         exoPlayer.addListener(listener)
 
         onDispose {
+            ragtimePiano.release()
+            audioBooster.release()
             exoPlayer.removeListener(listener)
             val currentPos = exoPlayer.currentPosition
             val totalDur = exoPlayer.duration.coerceAtLeast(durationMs)
@@ -278,12 +371,17 @@ fun RetroPlayerScreen(
         }
     }
 
-    // Position tracking
+    // Position tracking & silent-era 0-amplitude PCM track detection
     LaunchedEffect(exoPlayer, isPlaying, cartoon.id) {
         while (true) {
             if (isPlaying && !isUserSeeking) {
                 currentPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
                 durationMs = exoPlayer.duration.coerceAtLeast(durationMs)
+                if (silenceDetector.hasDetectedAudibleAudio()) {
+                    if (isSilentFilmAutoPiano) isSilentFilmAutoPiano = false
+                } else if (silenceDetector.isConfirmedZeroAmplitudeTrack()) {
+                    if (!isSilentFilmAutoPiano) isSilentFilmAutoPiano = true
+                }
                 if (currentPositionMs > 0 && currentPositionMs % 5000L < 1000L) {
                     latestOnSaveProgress(latestCartoon.id, currentPositionMs, durationMs)
                 }
@@ -393,6 +491,12 @@ fun RetroPlayerScreen(
                         }
                         KeyEvent.KEYCODE_MEDIA_NEXT -> {
                             onPlayNext()
+                            true
+                        }
+                        KeyEvent.KEYCODE_VOLUME_MUTE -> {
+                            audioMode = if (audioMode == PlayerAudioMode.MUTE) PlayerAudioMode.BOOST else PlayerAudioMode.MUTE
+                            areControlsVisible = true
+                            lastInteractionTime = System.currentTimeMillis()
                             true
                         }
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
@@ -902,17 +1006,70 @@ fun RetroPlayerScreen(
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                 )
                             }
+                            if ((isSilentFilmAutoPiano || audioMode == PlayerAudioMode.PIANO) && audioMode != PlayerAudioMode.MUTE) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = RetroGold.copy(alpha = 0.22f),
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = androidx.compose.foundation.BorderStroke(0.75.dp, RetroGold)
+                                ) {
+                                    Text(
+                                        text = "🎹 PIANO SCORE",
+                                        color = RetroGold,
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 
-                    // Action Buttons (PiP, Filter, Aspect, CC, Rotate) aligned to top-right
+                    // Action Buttons (Audio, PiP, Filter, Aspect, CC, Rotate) aligned to top-right
                     val isTelevision = remember(context) {
                         context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
                     }
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Audio Remaster / Boost / Piano / Mute Toggle
+                        TvFocusableIconButton(
+                            onClick = {
+                                audioMode = when (audioMode) {
+                                    PlayerAudioMode.BOOST -> PlayerAudioMode.NORMAL
+                                    PlayerAudioMode.NORMAL -> PlayerAudioMode.PIANO
+                                    PlayerAudioMode.PIANO -> PlayerAudioMode.MUTE
+                                    PlayerAudioMode.MUTE -> PlayerAudioMode.BOOST
+                                }
+                                lastInteractionTime = System.currentTimeMillis()
+                            },
+                            tag = "player_audio_mode_button"
+                        ) {
+                            val audioTint = when (audioMode) {
+                                PlayerAudioMode.BOOST, PlayerAudioMode.PIANO -> RetroGold
+                                PlayerAudioMode.NORMAL -> Color.White
+                                PlayerAudioMode.MUTE -> RetroRuby
+                            }
+                            val audioIcon = when (audioMode) {
+                                PlayerAudioMode.BOOST -> Icons.Default.GraphicEq
+                                PlayerAudioMode.NORMAL -> Icons.AutoMirrored.Filled.VolumeUp
+                                PlayerAudioMode.PIANO -> Icons.Default.MusicNote
+                                PlayerAudioMode.MUTE -> Icons.AutoMirrored.Filled.VolumeOff
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = audioIcon,
+                                    contentDescription = "Audio Mode: ${audioMode.label}",
+                                    tint = audioTint,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(text = audioMode.label, color = audioTint, fontSize = 8.sp)
+                            }
+                        }
+
                         // PiP Button
                         TvFocusableIconButton(
                             onClick = onEnterPip,

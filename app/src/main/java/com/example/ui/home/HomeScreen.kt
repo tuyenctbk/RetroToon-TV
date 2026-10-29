@@ -1,5 +1,6 @@
 package com.example.ui.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -133,12 +134,25 @@ fun HomeScreen(
     onDismissDonationBanner: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // TV Remote & Mobile Back navigation: return to Featured Home tab or clear active Category filter before exiting app
+    BackHandler(enabled = uiState.currentTab != "home" || uiState.categoryFilter != "ALL") {
+        if (uiState.currentTab != "home") {
+            onTabSelected("home")
+        } else if (uiState.categoryFilter != "ALL") {
+            onCategoryFilterSelected("ALL")
+        }
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(CinemaBlack)
     ) {
-        val isWideScreen = maxWidth >= 680.dp
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val isTelevision = remember(context) {
+            context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+        }
+        val isWideScreen = maxWidth >= 680.dp || isTelevision
 
         Column(
             modifier = Modifier
@@ -1186,10 +1200,13 @@ fun HeroBillboard(
                 .padding(horizontal = if (isWideScreen) 32.dp else 20.dp, vertical = if (isWideScreen) 14.dp else 18.dp),
             verticalArrangement = Arrangement.Bottom
         ) {
-            Crossfade(
+            AnimatedContent(
                 targetState = cartoon,
-                animationSpec = tween(420),
-                label = "hero_text_crossfade"
+                contentKey = { it.id },
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(110))
+                },
+                label = "hero_text_transition"
             ) { activeHero ->
                 Column {
                     Row(
@@ -1502,7 +1519,10 @@ fun RecentlyWatchedCarouselRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
                 Surface(
                     color = RetroGold.copy(alpha = 0.18f),
                     shape = CircleShape,
@@ -1535,10 +1555,16 @@ fun RecentlyWatchedCarouselRow(
                 }
             }
 
+            var clearHistoryFocused by remember { mutableStateOf(false) }
             TextButton(
                 onClick = onClearHistory,
-                colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.5f)),
-                modifier = Modifier.testTag("clear_history_button")
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = if (clearHistoryFocused) RetroGold else Color.White.copy(alpha = 0.55f)
+                ),
+                border = if (clearHistoryFocused) androidx.compose.foundation.BorderStroke(1.5.dp, RetroGold) else null,
+                modifier = Modifier
+                    .onFocusChanged { clearHistoryFocused = it.isFocused }
+                    .testTag("clear_history_button")
             ) {
                 Text(
                     text = stringResource(R.string.clear_history),
@@ -1592,12 +1618,18 @@ fun CartoonCarouselRow(
                 color = Color.White,
                 fontSize = if (isWideScreen) 18.sp else 16.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.3.sp
+                letterSpacing = 0.3.sp,
+                maxLines = if (isWideScreen) 1 else 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
+            Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = "${items.size} shorts",
                 color = Color.White.copy(alpha = 0.5f),
-                fontSize = 11.sp
+                fontSize = 11.sp,
+                maxLines = 1,
+                softWrap = false
             )
         }
 
@@ -1746,7 +1778,7 @@ fun CartoonPosterCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (onRemoveRecent != null) {
+                    if (onRemoveRecent != null && !isWideScreen) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -1754,7 +1786,6 @@ fun CartoonPosterCard(
                                 .clip(CircleShape)
                                 .background(Color.Black.copy(alpha = 0.68f))
                                 .border(0.75.dp, Color.White.copy(alpha = 0.22f), CircleShape)
-                                .focusProperties { canFocus = false }
                                 .clickable(onClick = onRemoveRecent)
                                 .testTag("remove_recent_${cartoon.id}")
                         ) {
@@ -1778,8 +1809,10 @@ fun CartoonPosterCard(
                                 if (cartoon.isFavorite) RetroGold.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.22f),
                                 CircleShape
                             )
-                            .focusProperties { canFocus = false }
-                            .clickable(onClick = onToggleWatchlist)
+                            .then(
+                                if (!isWideScreen) Modifier.clickable(onClick = onToggleWatchlist)
+                                else Modifier
+                            )
                     ) {
                         Icon(
                             imageVector = if (cartoon.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
@@ -2163,11 +2196,25 @@ fun WatchlistView(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Spacer(modifier = Modifier.height(24.dp))
+            var browseFocused by remember { mutableStateOf(false) }
+            val browseFocusRequester = remember { FocusRequester() }
+            LaunchedEffect(isWideScreen) {
+                if (isWideScreen) {
+                    delay(200)
+                    try {
+                        browseFocusRequester.requestFocus()
+                    } catch (_: Exception) {}
+                }
+            }
             Button(
                 onClick = onExploreClick,
                 colors = ButtonDefaults.buttonColors(containerColor = RetroGold, contentColor = CinemaBlack),
+                border = if (browseFocused) androidx.compose.foundation.BorderStroke(2.5.dp, Color.White) else null,
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(48.dp)
+                modifier = Modifier
+                    .height(48.dp)
+                    .focusRequester(browseFocusRequester)
+                    .onFocusChanged { browseFocused = it.isFocused }
             ) {
                 Text("Browse Classic Cartoons", fontWeight = FontWeight.Bold)
             }

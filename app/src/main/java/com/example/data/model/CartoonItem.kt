@@ -2,6 +2,7 @@ package com.example.data.model
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import java.net.URLEncoder
 
 data class CartoonItem(
     val id: String,
@@ -26,7 +27,10 @@ data class CartoonItem(
 
     fun getResolvedStreamUrl(): String {
         return videoStreamUrl ?: if (!mp4Filename.isNullOrBlank()) {
-            "https://archive.org/download/$id/$mp4Filename"
+            val encodedFile = URLEncoder.encode(mp4Filename, "UTF-8")
+                .replace("+", "%20")
+                .replace("%2F", "/")
+            "https://archive.org/download/$id/$encodedFile"
         } else {
             "https://archive.org/download/$id/${id}_512kb.mp4"
         }

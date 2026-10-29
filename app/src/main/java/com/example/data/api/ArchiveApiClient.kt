@@ -103,23 +103,32 @@ class ArchiveApiClient {
                 val filesArr = root.optJSONArray("result") ?: return@withContext emptyList()
 
                 val mp4List = mutableListOf<String>()
+                val fallbackVideoList = mutableListOf<String>()
                 for (i in 0 until filesArr.length()) {
                     val fileObj = filesArr.optJSONObject(i) ?: continue
                     val name = fileObj.optString("name", "")
-                    if (name.endsWith(".mp4", ignoreCase = true)) {
+                    if (name.endsWith(".mp4", ignoreCase = true) || name.endsWith(".m4v", ignoreCase = true)) {
                         mp4List.add(name)
+                    } else if (name.endsWith(".ogv", ignoreCase = true) || name.endsWith(".mkv", ignoreCase = true)) {
+                        fallbackVideoList.add(name)
                     } else if (name.endsWith(".vtt", ignoreCase = true) || name.endsWith(".srt", ignoreCase = true)) {
                         if (!subtitleCache.containsKey(identifier)) {
-                            subtitleCache[identifier] = "https://archive.org/download/$identifier/$name"
+                            val encodedSub = URLEncoder.encode(name, "UTF-8")
+                                .replace("+", "%20")
+                                .replace("%2F", "/")
+                            subtitleCache[identifier] = "https://archive.org/download/$identifier/$encodedSub"
                         }
                     }
                 }
 
-                if (mp4List.isEmpty()) return@withContext emptyList()
+                val combined = mp4List + fallbackVideoList
+                if (combined.isEmpty()) return@withContext emptyList()
 
-                // Sort: 512kb/stream first, standard mp4, then ia.mp4
-                return@withContext mp4List.sortedWith(
-                    compareByDescending<String> { it.contains("512kb", ignoreCase = true) }
+                // Sort: MP4s with sound first (512kb -> standard mp4 -> ia.mp4), then fallback containers
+                return@withContext combined.sortedWith(
+                    compareByDescending<String> { it.endsWith(".mp4", ignoreCase = true) || it.endsWith(".m4v", ignoreCase = true) }
+                        .thenByDescending { !it.contains("silent", ignoreCase = true) }
+                        .thenByDescending { it.contains("512kb", ignoreCase = true) }
                         .thenByDescending { !it.contains("ia.mp4", ignoreCase = true) }
                 )
             }

@@ -104,13 +104,13 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
             serialsList = repository.enrichWithUserData(serials)
         )
 
-        // Async fetch more items from Archive.org in the background
+        // Async fetch more items from Archive.org in the background (prioritizing synchronized sound transfers)
         viewModelScope.launch {
             try {
-                val remotePopeye = repository.fetchCategory("collection:(classic_cartoons) AND title:(popeye)", popeye)
-                val remoteSuperman = repository.fetchCategory("collection:(classic_cartoons) AND title:(superman)", superman)
-                val remoteBetty = repository.fetchCategory("title:(betty boop) AND mediatype:(movies)", betty)
-                val remoteSerials = repository.fetchCategory("title:(buster keaton) AND mediatype:(movies)", serials)
+                val remotePopeye = repository.fetchCategory("collection:(classic_cartoons) AND title:(popeye) AND NOT sound:(silent)", popeye)
+                val remoteSuperman = repository.fetchCategory("collection:(classic_cartoons) AND title:(superman) AND NOT sound:(silent)", superman)
+                val remoteBetty = repository.fetchCategory("title:(betty boop) AND mediatype:(movies) AND NOT sound:(silent)", betty)
+                val remoteSerials = repository.fetchCategory("(title:(felix the cat) OR title:(three stooges) OR title:(casper)) AND mediatype:(movies) AND NOT sound:(silent)", serials)
 
                 _uiState.value = _uiState.value.copy(
                     supermanList = remoteSuperman,
