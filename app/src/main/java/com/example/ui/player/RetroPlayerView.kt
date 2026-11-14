@@ -632,6 +632,10 @@ fun RetroPlayerScreen(
                                 true
                             } else false
                         }
+                        KeyEvent.KEYCODE_BACK -> {
+                            onClose()
+                            true
+                        }
                         else -> false
                     }
                 } else false
