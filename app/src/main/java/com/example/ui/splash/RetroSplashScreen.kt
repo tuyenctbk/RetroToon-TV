@@ -1,11 +1,13 @@
 package com.example.ui.splash
 
+import android.view.KeyEvent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -60,13 +62,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.ui.theme.CinemaBlack
 import com.example.ui.theme.CinemaBorder
 import com.example.ui.theme.CinemaDark
@@ -150,6 +158,22 @@ fun RetroSplashScreen(
         modifier = modifier
             .fillMaxSize()
             .background(CinemaBlack)
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                    when (keyEvent.nativeKeyEvent.keyCode) {
+                        KeyEvent.KEYCODE_DPAD_CENTER,
+                        KeyEvent.KEYCODE_ENTER,
+                        KeyEvent.KEYCODE_NUMPAD_ENTER,
+                        KeyEvent.KEYCODE_MEDIA_PLAY,
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                        KeyEvent.KEYCODE_SPACE -> {
+                            onFinished()
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            }
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
@@ -172,14 +196,30 @@ fun RetroSplashScreen(
             isCompactHeight -> 12.dp
             else -> 22.dp
         }
-        // Warm projector radial spotlight + vintage vertical film scratches
+        // Overhead theater projector light cone + warm radial spotlight + vintage vertical film scratches
         Canvas(modifier = Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height * 0.42f)
+            val beamPath = Path().apply {
+                moveTo(size.width * 0.5f, 0f)
+                lineTo(size.width * 0.14f, size.height)
+                lineTo(size.width * 0.86f, size.height)
+                close()
+            }
+            drawPath(
+                path = beamPath,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        RetroGold.copy(alpha = 0.11f * flickerAlpha),
+                        RetroGold.copy(alpha = 0.04f * flickerAlpha),
+                        Color.Transparent
+                    )
+                )
+            )
             drawRect(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        RetroGold.copy(alpha = 0.14f * flickerAlpha),
-                        RetroRuby.copy(alpha = 0.05f * flickerAlpha),
+                        RetroGold.copy(alpha = 0.16f * flickerAlpha),
+                        RetroRuby.copy(alpha = 0.06f * flickerAlpha),
                         Color.Transparent
                     ),
                     center = center,
@@ -245,7 +285,7 @@ fun RetroSplashScreen(
                             )
                     )
                     Text(
-                        text = "35MM ARCHIVAL PROJECTION • SOUND ON FILM",
+                        text = stringResource(R.string.splash_projection_badge),
                         color = RetroCream.copy(alpha = 0.85f),
                         fontSize = 9.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -470,7 +510,7 @@ fun RetroSplashScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "1930s – 1950s PUBLIC DOMAIN THEATER",
+                        text = stringResource(R.string.splash_theater_subtitle),
                         color = RetroGold.copy(alpha = 0.9f),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -500,7 +540,7 @@ fun RetroSplashScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Fleischer Superman • Popeye • Betty Boop • Felix the Cat",
+                text = stringResource(R.string.splash_characters_line),
                 color = RetroCream.copy(alpha = 0.65f),
                 fontSize = 11.5.sp,
                 fontWeight = FontWeight.Medium
@@ -508,18 +548,30 @@ fun RetroSplashScreen(
 
             Spacer(modifier = Modifier.height(spacingMedium))
 
-            // Skip / Enter Button
+            // Skip / Enter Button with TV D-Pad spring scale & 48dp minimum touch target
             var enterFocused by remember { mutableStateOf(false) }
+            val enterScale by animateFloatAsState(
+                targetValue = if (enterFocused) 1.07f else 1.0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "splash_enter_scale"
+            )
             Button(
                 onClick = onFinished,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = RetroGold,
                     contentColor = CinemaBlack
                 ),
-                border = if (enterFocused) BorderStroke(2.dp, Color.White) else null,
+                border = if (enterFocused) BorderStroke(2.5.dp, Color.White) else null,
                 shape = RoundedCornerShape(24.dp),
                 modifier = Modifier
-                    .height(44.dp)
+                    .heightIn(min = 48.dp)
+                    .graphicsLayer {
+                        scaleX = enterScale
+                        scaleY = enterScale
+                    }
                     .focusRequester(enterFocusRequester)
                     .onFocusChanged { enterFocused = it.isFocused }
                     .testTag("splash_enter_button")
@@ -531,7 +583,7 @@ fun RetroSplashScreen(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Enter Theater",
+                    text = stringResource(R.string.enter_theater),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 13.5.sp,
                     letterSpacing = 0.4.sp

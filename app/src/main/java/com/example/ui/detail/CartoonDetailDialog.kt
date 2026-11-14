@@ -5,11 +5,14 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.speech.tts.TextToSpeech
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,25 +33,34 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +73,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,13 +81,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import com.example.R
+import com.example.data.ai.ArchivalHistorianHelper
 import com.example.data.download.DownloadHelper
 import com.example.data.model.CartoonItem
+import com.example.ui.theme.CinemaBorder
 import com.example.ui.theme.CinemaDark
 import com.example.ui.theme.CinemaSurface
 import com.example.ui.theme.CinemaSurfaceVariant
+import com.example.ui.theme.RetroCream
 import com.example.ui.theme.RetroGold
 import com.example.ui.theme.RetroRuby
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun CartoonDetailDialog(
@@ -86,8 +105,40 @@ fun CartoonDetailDialog(
     onCopyStreamUrl: ((CartoonItem) -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val downloadHelper = remember { DownloadHelper(context) }
     val playFocusRequester = remember { FocusRequester() }
+    val archivalNote = remember(cartoon.id) { ArchivalHistorianHelper.buildArchivalNote(cartoon) }
+
+    // On-device zero-cost TextToSpeech Audio Docent
+    var isSpeaking by remember { mutableStateOf(false) }
+    var ttsReady by remember { mutableStateOf(false) }
+    val ttsRef = remember { mutableStateOf<TextToSpeech?>(null) }
+
+    DisposableEffect(context) {
+        var instance: TextToSpeech? = null
+        instance = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                instance?.language = Locale.getDefault()
+                ttsReady = true
+            }
+        }
+        ttsRef.value = instance
+        onDispose {
+            try {
+                instance?.stop()
+                instance?.shutdown()
+            } catch (_: Exception) {}
+        }
+    }
+
+    // Optional BYOK & Historian Q&A state
+    var showHistorianPanel by remember { mutableStateOf(false) }
+    var showByokSettings by remember { mutableStateOf(false) }
+    var byokInput by remember { mutableStateOf(ArchivalHistorianHelper.getUserApiKey(context)) }
+    var hasPersonalKey by remember { mutableStateOf(ArchivalHistorianHelper.hasUserApiKey(context)) }
+    var historianAnswer by remember(cartoon.id) { mutableStateOf<String?>(null) }
+    var isAskingHistorian by remember { mutableStateOf(false) }
 
     LaunchedEffect(cartoon.id) {
         kotlinx.coroutines.delay(140)
@@ -113,6 +164,8 @@ fun CartoonDetailDialog(
             var downloadFocused by remember { mutableStateOf(false) }
             var sourceFocused by remember { mutableStateOf(false) }
             var copyFocused by remember { mutableStateOf(false) }
+            var ttsFocused by remember { mutableStateOf(false) }
+            var historianToggleFocused by remember { mutableStateOf(false) }
 
             val playScale by animateFloatAsState(
                 targetValue = if (playFocused) 1.04f else 1.0f,
@@ -125,9 +178,9 @@ fun CartoonDetailDialog(
                 color = CinemaDark,
                 tonalElevation = 8.dp,
                 modifier = Modifier
-                    .widthIn(max = if (isWideOrLandscape) 640.dp else 520.dp)
-                    .fillMaxWidth(if (isWideOrLandscape) 0.88f else 0.94f)
-                    .heightIn(max = (maxHeight * 0.94f).coerceAtMost(640.dp))
+                    .widthIn(max = if (isWideOrLandscape) 660.dp else 520.dp)
+                    .fillMaxWidth(if (isWideOrLandscape) 0.90f else 0.94f)
+                    .heightIn(max = (maxHeight * 0.94f).coerceAtMost(660.dp))
                     .border(1.5.dp, RetroGold.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
                     .testTag("cartoon_detail_dialog")
             ) {
@@ -169,28 +222,28 @@ fun CartoonDetailDialog(
                                 )
                         )
 
-                        // Close button with D-Pad focus highlight
+                        // Close button with 48dp touch target & D-Pad focus highlight
                         IconButton(
                             onClick = onDismiss,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(8.dp)
-                                .size(42.dp)
+                                .size(48.dp)
                                 .onFocusChanged { closeFocused = it.isFocused }
                                 .background(
                                     if (closeFocused) RetroGold else Color.Black.copy(alpha = 0.65f),
-                                    RoundedCornerShape(21.dp)
+                                    RoundedCornerShape(24.dp)
                                 )
                                 .border(
                                     width = if (closeFocused) 2.dp else 1.dp,
                                     color = if (closeFocused) Color.White else Color.White.copy(alpha = 0.25f),
-                                    shape = RoundedCornerShape(21.dp)
+                                    shape = RoundedCornerShape(24.dp)
                                 )
                                 .testTag("detail_close_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
+                                contentDescription = stringResource(R.string.close),
                                 tint = if (closeFocused) CinemaDark else Color.White
                             )
                         }
@@ -248,7 +301,7 @@ fun CartoonDetailDialog(
                                 border = androidx.compose.foundation.BorderStroke(1.dp, RetroRuby)
                             ) {
                                 Text(
-                                    text = "PUBLIC DOMAIN (PRE-1960)",
+                                    text = stringResource(R.string.public_domain_badge),
                                     color = RetroRuby,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
@@ -263,7 +316,7 @@ fun CartoonDetailDialog(
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
-                                    text = "INTERNET ARCHIVE",
+                                    text = stringResource(R.string.internet_archive),
                                     color = Color.White.copy(alpha = 0.8f),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -279,7 +332,7 @@ fun CartoonDetailDialog(
                         // Synopsis
                         Text(
                             text = cartoon.description.ifBlank {
-                                "Classic restored vintage animation preserved from the Internet Archive public domain collection."
+                                archivalNote.historicalContext
                             },
                             color = Color.White.copy(alpha = 0.85f),
                             fontSize = 13.5.sp,
@@ -288,15 +341,19 @@ fun CartoonDetailDialog(
                             overflow = TextOverflow.Ellipsis
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        // Action Buttons (Play & Watchlist)
+                        // Action Buttons (Play & Watchlist) with 48dp touch targets
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Button(
-                                onClick = { onPlay(cartoon) },
+                                onClick = {
+                                    ttsRef.value?.stop()
+                                    isSpeaking = false
+                                    onPlay(cartoon)
+                                },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = RetroGold,
                                     contentColor = CinemaDark
@@ -304,7 +361,7 @@ fun CartoonDetailDialog(
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .heightIn(min = 48.dp)
                                     .graphicsLayer {
                                         scaleX = playScale
                                         scaleY = playScale
@@ -322,7 +379,13 @@ fun CartoonDetailDialog(
                             ) {
                                 Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("Play Stream", fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, softWrap = false)
+                                Text(
+                                    text = stringResource(R.string.play_stream_action),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
                             }
 
                             OutlinedButton(
@@ -336,7 +399,7 @@ fun CartoonDetailDialog(
                                 ),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier
-                                    .height(46.dp)
+                                    .heightIn(min = 48.dp)
                                     .onFocusChanged { watchlistFocused = it.isFocused }
                                     .testTag("detail_watchlist_button")
                             ) {
@@ -346,7 +409,281 @@ fun CartoonDetailDialog(
                                     tint = if (cartoon.isFavorite || watchlistFocused) RetroGold else Color.White
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (cartoon.isFavorite) "Saved" else "Watchlist", maxLines = 1, softWrap = false)
+                                Text(
+                                    text = if (cartoon.isFavorite) stringResource(R.string.saved) else stringResource(R.string.nav_watchlist),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Zero-Cost AI Archival Film Historian & On-Device Audio Docent Card
+                        Surface(
+                            color = CinemaSurfaceVariant.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, RetroGold.copy(alpha = 0.35f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("archival_historian_card")
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = RetroGold,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = stringResource(R.string.archival_historian_title),
+                                            color = RetroGold,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
+
+                                    // On-Device TTS Audio Narration Button ($0 cost, built-in Android TTS)
+                                    OutlinedButton(
+                                        onClick = {
+                                            val engine = ttsRef.value
+                                            if (engine != null && ttsReady) {
+                                                if (isSpeaking) {
+                                                    engine.stop()
+                                                    isSpeaking = false
+                                                } else {
+                                                    engine.speak(
+                                                        archivalNote.spokenSummary,
+                                                        TextToSpeech.QUEUE_FLUSH,
+                                                        null,
+                                                        "historian_${cartoon.id}"
+                                                    )
+                                                    isSpeaking = true
+                                                }
+                                            }
+                                        },
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            width = if (ttsFocused) 2.dp else 1.dp,
+                                            color = if (ttsFocused || isSpeaking) RetroGold else Color.White.copy(alpha = 0.35f)
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier
+                                            .heightIn(min = 36.dp)
+                                            .onFocusChanged { ttsFocused = it.isFocused }
+                                            .testTag("detail_tts_historian_button")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isSpeaking) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
+                                            contentDescription = null,
+                                            tint = RetroGold,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (isSpeaking) stringResource(R.string.stop_audio) else stringResource(R.string.listen_audio),
+                                            color = if (isSpeaking || ttsFocused) RetroGold else Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Text(
+                                    text = archivalNote.studioTechnique,
+                                    color = RetroCream.copy(alpha = 0.9f),
+                                    fontSize = 11.5.sp,
+                                    lineHeight = 16.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                // Toggle Interactive Q&A / Optional BYOK
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (hasPersonalKey) stringResource(R.string.mode_byok) else stringResource(R.string.mode_free_historian),
+                                        color = Color.White.copy(alpha = 0.55f),
+                                        fontSize = 10.sp
+                                    )
+
+                                    TextButton(
+                                        onClick = { showHistorianPanel = !showHistorianPanel },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier
+                                            .onFocusChanged { historianToggleFocused = it.isFocused }
+                                            .testTag("toggle_historian_qa_button")
+                                    ) {
+                                        Text(
+                                            text = if (showHistorianPanel) stringResource(R.string.hide_qa) else stringResource(R.string.ask_historian_byok),
+                                            color = if (historianToggleFocused) Color.White else RetroGold,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                AnimatedVisibility(visible = showHistorianPanel) {
+                                    Column(modifier = Modifier.padding(top = 6.dp)) {
+                                        // Quick Question Chips
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            val quickPrompts = listOf(
+                                                Triple("technique", stringResource(R.string.qa_chip_technique), stringResource(R.string.qa_question_technique)),
+                                                Triple("music", stringResource(R.string.qa_chip_music), stringResource(R.string.qa_question_music)),
+                                                Triple("public_domain", stringResource(R.string.qa_chip_public_domain), stringResource(R.string.qa_question_public_domain))
+                                            )
+                                            quickPrompts.forEach { (topicKey, label, fullQ) ->
+                                                Surface(
+                                                    color = CinemaDark,
+                                                    shape = RoundedCornerShape(14.dp),
+                                                    border = androidx.compose.foundation.BorderStroke(1.dp, CinemaBorder),
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .clickable(enabled = !isAskingHistorian) {
+                                                            isAskingHistorian = true
+                                                            coroutineScope.launch {
+                                                                val res = ArchivalHistorianHelper.askHistorian(
+                                                                    context = context,
+                                                                    cartoon = cartoon,
+                                                                    question = fullQ,
+                                                                    topicKey = topicKey
+                                                                )
+                                                                historianAnswer = res.getOrNull()
+                                                                isAskingHistorian = false
+                                                            }
+                                                        }
+                                                ) {
+                                                    Text(
+                                                        text = label,
+                                                        color = RetroGold,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        if (isAskingHistorian) {
+                                            Text(
+                                                text = stringResource(R.string.consulting_archives),
+                                                color = RetroGold,
+                                                fontSize = 11.sp,
+                                                modifier = Modifier.padding(top = 8.dp)
+                                            )
+                                        } else if (!historianAnswer.isNullOrBlank()) {
+                                            Surface(
+                                                color = CinemaDark.copy(alpha = 0.85f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp)
+                                            ) {
+                                                Text(
+                                                    text = historianAnswer.orEmpty(),
+                                                    color = Color.White.copy(alpha = 0.92f),
+                                                    fontSize = 11.5.sp,
+                                                    lineHeight = 16.sp,
+                                                    modifier = Modifier.padding(10.dp)
+                                                )
+                                            }
+                                        }
+
+                                        // Optional BYOK ("Bring Your Own Gemini Key") configuration
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 6.dp),
+                                            horizontalArrangement = Arrangement.End
+                                        ) {
+                                            TextButton(
+                                                onClick = { showByokSettings = !showByokSettings },
+                                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Key,
+                                                    contentDescription = null,
+                                                    tint = RetroGold,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = if (hasPersonalKey) stringResource(R.string.update_byok_key) else stringResource(R.string.use_byok_key),
+                                                    color = RetroGold.copy(alpha = 0.85f),
+                                                    fontSize = 10.5.sp
+                                                )
+                                            }
+                                        }
+
+                                        AnimatedVisibility(visible = showByokSettings) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 4.dp)
+                                            ) {
+                                                Text(
+                                                    text = stringResource(R.string.byok_disclaimer),
+                                                    color = Color.White.copy(alpha = 0.65f),
+                                                    fontSize = 10.sp,
+                                                    lineHeight = 14.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    OutlinedTextField(
+                                                        value = byokInput,
+                                                        onValueChange = { byokInput = it },
+                                                        placeholder = {
+                                                            Text(stringResource(R.string.byok_hint), fontSize = 11.sp)
+                                                        },
+                                                        singleLine = true,
+                                                        colors = OutlinedTextFieldDefaults.colors(
+                                                            focusedBorderColor = RetroGold,
+                                                            unfocusedBorderColor = CinemaBorder,
+                                                            focusedTextColor = Color.White,
+                                                            unfocusedTextColor = Color.White
+                                                        ),
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                    Button(
+                                                        onClick = {
+                                                            ArchivalHistorianHelper.setUserApiKey(context, byokInput)
+                                                            hasPersonalKey = ArchivalHistorianHelper.hasUserApiKey(context)
+                                                            showByokSettings = false
+                                                        },
+                                                        colors = ButtonDefaults.buttonColors(
+                                                            containerColor = RetroGold,
+                                                            contentColor = CinemaDark
+                                                        )
+                                                    ) {
+                                                        Text(stringResource(R.string.save), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -372,6 +709,7 @@ fun CartoonDetailDialog(
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp),
                                 modifier = Modifier
                                     .weight(1f)
+                                    .heightIn(min = 48.dp)
                                     .onFocusChanged { downloadFocused = it.isFocused }
                             ) {
                                 Icon(
@@ -382,7 +720,7 @@ fun CartoonDetailDialog(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Download",
+                                    text = stringResource(R.string.download),
                                     color = if (downloadFocused) RetroGold else Color.White,
                                     fontSize = 11.sp,
                                     maxLines = 1,
@@ -398,7 +736,7 @@ fun CartoonDetailDialog(
                                     } catch (_: Exception) {
                                         val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                         clip.setPrimaryClip(ClipData.newPlainText("Archive Page", cartoon.archiveDetailsUrl))
-                                        Toast.makeText(context, "Archive page URL copied", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.archive_url_copied_toast), Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 border = androidx.compose.foundation.BorderStroke(
@@ -408,6 +746,7 @@ fun CartoonDetailDialog(
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp),
                                 modifier = Modifier
                                     .weight(1f)
+                                    .heightIn(min = 48.dp)
                                     .onFocusChanged { sourceFocused = it.isFocused }
                             ) {
                                 Icon(
@@ -418,7 +757,7 @@ fun CartoonDetailDialog(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Source",
+                                    text = stringResource(R.string.source),
                                     color = if (sourceFocused) RetroGold else Color.White,
                                     fontSize = 11.sp,
                                     maxLines = 1,
@@ -433,7 +772,7 @@ fun CartoonDetailDialog(
                                     } else {
                                         val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                         clip.setPrimaryClip(ClipData.newPlainText("Stream URL", cartoon.getResolvedStreamUrl()))
-                                        Toast.makeText(context, "Stream link copied", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.stream_link_copied_toast), Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 border = androidx.compose.foundation.BorderStroke(
@@ -443,6 +782,7 @@ fun CartoonDetailDialog(
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp),
                                 modifier = Modifier
                                     .weight(1f)
+                                    .heightIn(min = 48.dp)
                                     .onFocusChanged { copyFocused = it.isFocused }
                             ) {
                                 Icon(
@@ -453,7 +793,7 @@ fun CartoonDetailDialog(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "Copy",
+                                    text = stringResource(R.string.copy),
                                     color = if (copyFocused) RetroGold else Color.White,
                                     fontSize = 11.sp,
                                     maxLines = 1,

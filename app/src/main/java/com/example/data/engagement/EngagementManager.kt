@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
+import com.example.BuildConfig
+import com.example.R
 
 enum class SuggestionType {
     RATE_APP,
@@ -75,10 +77,10 @@ class EngagementManager(private val context: Context) {
         if (shortsWatched >= 3 && !rateCompleted && !rateDismissed) {
             return AppSuggestion(
                 type = SuggestionType.RATE_APP,
-                title = "Enjoying Vintage Cartoons?",
-                subtitle = "Help us keep public domain animation free and accessible by rating RetroToon TV on Google Play!",
-                primaryButtonText = "Rate 5 Stars ★",
-                secondaryButtonText = "Remind Later"
+                title = context.getString(R.string.rate_title),
+                subtitle = context.getString(R.string.rate_subtitle),
+                primaryButtonText = context.getString(R.string.rate_primary),
+                secondaryButtonText = context.getString(R.string.rate_secondary)
             )
         }
 
@@ -86,10 +88,10 @@ class EngagementManager(private val context: Context) {
         if (watchlistAdds >= 3 && !shareDismissed) {
             return AppSuggestion(
                 type = SuggestionType.SHARE_APP,
-                title = "Spread the Golden Age Magic!",
-                subtitle = "Share RetroToon TV with friends and family so they can stream Betty Boop, Popeye, and Superman shorts for free.",
-                primaryButtonText = "Share App",
-                secondaryButtonText = "Maybe Later"
+                title = context.getString(R.string.share_title),
+                subtitle = context.getString(R.string.share_subtitle),
+                primaryButtonText = context.getString(R.string.share_primary),
+                secondaryButtonText = context.getString(R.string.share_secondary)
             )
         }
 
@@ -97,10 +99,10 @@ class EngagementManager(private val context: Context) {
         if (sessions >= 8 && !updateDismissed && (now - lastPrompt >= 14 * 24 * 60 * 60 * 1000L)) {
             return AppSuggestion(
                 type = SuggestionType.CHECK_UPDATE,
-                title = "RetroToon TV is Up-to-Date",
-                subtitle = "You are running the latest v1.0 release. Connected live with Internet Archive public domain mirrors.",
-                primaryButtonText = "Check Play Store",
-                secondaryButtonText = "Great!"
+                title = context.getString(R.string.update_title),
+                subtitle = context.getString(R.string.update_subtitle, BuildConfig.VERSION_NAME),
+                primaryButtonText = context.getString(R.string.update_primary),
+                secondaryButtonText = context.getString(R.string.update_secondary)
             )
         }
 
@@ -165,16 +167,17 @@ class EngagementManager(private val context: Context) {
 
     private fun launchShareSheet() {
         try {
+            val playStoreUrl = "https://play.google.com/store/apps/details?id=${context.packageName}"
             val sendIntent = Intent().apply {
                 action = Intent.ACTION_SEND
                 putExtra(
                     Intent.EXTRA_TEXT,
-                    "Stream classic 1930s-1950s public domain cartoons (Superman 1941, Popeye, Betty Boop, Buster Keaton) for free with RetroToon TV! https://play.google.com/store/apps/details?id=${context.packageName}"
+                    context.getString(R.string.share_message, playStoreUrl)
                 )
                 type = "text/plain"
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            val shareIntent = Intent.createChooser(sendIntent, "Share RetroToon TV").apply {
+            val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_chooser_title)).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(shareIntent)

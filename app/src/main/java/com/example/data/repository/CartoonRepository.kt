@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 
 import com.example.data.local.WatchlistDao
 import com.example.data.local.WatchlistEntity
@@ -69,7 +70,7 @@ class CartoonRepository(
         }
 
     // Resolved stream URL cache (id -> direct mp4 url)
-    private val streamUrlCache = mutableMapOf<String, String>()
+    private val streamUrlCache = ConcurrentHashMap<String, String>()
 
     init {
         loadPreferences()

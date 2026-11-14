@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.res.stringResource
+import com.example.R
 import kotlinx.coroutines.delay
 import com.example.data.engagement.AppSuggestion
 import com.example.data.engagement.SuggestionType
@@ -108,7 +110,7 @@ fun SuggestionDialog(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.close),
                             tint = if (closeFocused) CinemaBlack else Color.White.copy(alpha = 0.6f)
                         )
                     }
@@ -223,7 +225,7 @@ fun SuggestionDialog(
                 // "Don't show again" text option
                 var neverFocused by remember { mutableStateOf(false) }
                 Text(
-                    text = "Don't ask again",
+                    text = stringResource(R.string.dont_ask_again),
                     color = if (neverFocused) RetroGold else Color.White.copy(alpha = 0.45f),
                     fontSize = 11.sp,
                     modifier = Modifier

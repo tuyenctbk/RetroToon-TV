@@ -264,7 +264,107 @@ class ExampleRobolectricTest {
     assertEquals(0L, completed.watchProgressMs)
     assertEquals(600000L, completed.durationMs)
   }
+
+  @Test
+  fun `verify ArchivalHistorianHelper builds dossier and answers locally at zero cost`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repository = CartoonRepository(context)
+    val superman = repository.getCuratedFeatured().first { it.id == "superman_the_mechanical_monsters" }
+
+    val note = com.example.data.ai.ArchivalHistorianHelper.buildArchivalNote(superman)
+    assertTrue(note.studioTechnique.contains("Fleischer"))
+    assertTrue(note.spokenSummary.contains(superman.title))
+
+    val answer = com.example.data.ai.ArchivalHistorianHelper.askHistorian(
+      context = context,
+      cartoon = superman,
+      question = "How was this animated?"
+    ).getOrNull()
+    assertNotNull(answer)
+    assertTrue(answer!!.contains("Fleischer"))
+  }
+
+  @Test
+  fun `verify RetroPlaybackService foreground MediaSessionService initializes cleanly`() {
+    val serviceController = Robolectric.buildService(com.example.playback.RetroPlaybackService::class.java).create()
+    val service = serviceController.get()
+    assertNotNull(service)
+    serviceController.destroy()
+  }
+
+  @Test
+  fun `verify CartoonTriviaAiService generates Did You Know historical context facts`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repository = CartoonRepository(context)
+    val popeye = repository.getCuratedPopeye().first()
+
+    val facts = com.example.data.ai.CartoonTriviaAiService.getDidYouKnowFacts(context, popeye)
+    assertTrue(facts.size >= 3)
+    assertTrue(facts.all { it.categoryBadge.isNotBlank() && it.factText.isNotBlank() })
+  }
+
+  @Test
+  fun `verify versionCode and versionName updated to 3 and 1_2`() {
+    assertEquals(3, BuildConfig.VERSION_CODE)
+    assertEquals("1.2", BuildConfig.VERSION_NAME)
+  }
+
+  @Test
+  fun `verify DonationManager tiers resolve from string resources`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val manager = com.example.data.donation.DonationManager(context)
+    val tiers = manager.playTiers
+    assertEquals(4, tiers.size)
+    assertEquals(context.getString(R.string.tier_1_title), tiers[0].title)
+    assertEquals(context.getString(R.string.tier_4_desc), tiers[3].description)
+  }
+
+  @Test
+  fun `verify ArchivalHistorianHelper topicKey routes accurately regardless of question language`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repository = CartoonRepository(context)
+    val superman = repository.getCuratedFeatured().first { it.id == "superman_the_mechanical_monsters" }
+
+    val techAnswer = com.example.data.ai.ArchivalHistorianHelper.askHistorian(
+      context = context,
+      cartoon = superman,
+      question = "これはどのようにアニメーション化されましたか？",
+      topicKey = "technique"
+    ).getOrNull()
+    assertNotNull(techAnswer)
+    assertTrue(techAnswer!!.contains("Fleischer"))
+
+    val pdAnswer = com.example.data.ai.ArchivalHistorianHelper.askHistorian(
+      context = context,
+      cartoon = superman,
+      question = "¿Por qué es de dominio público?",
+      topicKey = "public_domain"
+    ).getOrNull()
+    assertNotNull(pdAnswer)
+    assertTrue(pdAnswer!!.contains(superman.title))
+  }
+
+  @Test
+  fun `verify RetroPlaybackService attaches and detaches player cleanly`() {
+    val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+    val serviceController = Robolectric.buildService(com.example.playback.RetroPlaybackService::class.java).create()
+    val service = serviceController.get()
+    val binder = service.onBind(android.content.Intent(androidx.media3.session.MediaSessionService.SERVICE_INTERFACE))
+    org.robolectric.Shadows.shadowOf(app).setComponentNameAndServiceForBindService(
+      android.content.ComponentName(app, com.example.playback.RetroPlaybackService::class.java),
+      binder
+    )
+    val player = androidx.media3.exoplayer.ExoPlayer.Builder(app).build()
+    try {
+      val future = com.example.playback.RetroPlaybackService.attachPlayerAndBindSession(app, player)
+      assertNotNull(future)
+      org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+      com.example.playback.RetroPlaybackService.detachPlayerAndReleaseController(player, future)
+      org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+    } finally {
+      player.release()
+      serviceController.destroy()
+      org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+    }
+  }
 }
-
-
-

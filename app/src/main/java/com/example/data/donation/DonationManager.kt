@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.widget.Toast
+import com.example.R
 
 data class DonationTier(
     val id: String,
@@ -42,12 +43,13 @@ class DonationManager(private val context: Context) {
         }
     }
 
-    val playTiers = listOf(
-        DonationTier("tip_tier_1", "Classic Soda", "$1.99", "🥤", "Keep the projector running with a refreshing soda tip"),
-        DonationTier("tip_tier_2", "Popcorn & Soda", "$4.99", "🍿", "Support theater server hosting and restored archiving"),
-        DonationTier("tip_tier_3", "Film Reel Sponsor", "$9.99", "🎞️", "Help preserve and digitize rare vintage cartoons"),
-        DonationTier("tip_tier_4", "Cinema Benefactor", "$19.99", "⭐", "Ultimate patron of public domain classic animation")
-    )
+    val playTiers: List<DonationTier>
+        get() = listOf(
+            DonationTier("tip_tier_1", context.getString(R.string.tier_1_title), "$1.99", "🥤", context.getString(R.string.tier_1_desc)),
+            DonationTier("tip_tier_2", context.getString(R.string.tier_2_title), "$4.99", "🍿", context.getString(R.string.tier_2_desc)),
+            DonationTier("tip_tier_3", context.getString(R.string.tier_3_title), "$9.99", "🎞️", context.getString(R.string.tier_3_desc)),
+            DonationTier("tip_tier_4", context.getString(R.string.tier_4_title), "$19.99", "⭐", context.getString(R.string.tier_4_desc))
+        )
 
     fun recordAppLaunch() {
         val count = prefs.getInt(KEY_SESSION_COUNT, 0) + 1
@@ -138,7 +140,7 @@ class DonationManager(private val context: Context) {
             try {
                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 cm.setPrimaryClip(ClipData.newPlainText("Donation Link", url))
-                Toast.makeText(context, "No browser found — link copied: $url", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.no_browser_link_copied, url), Toast.LENGTH_LONG).show()
             } catch (_: Exception) {}
         }
     }

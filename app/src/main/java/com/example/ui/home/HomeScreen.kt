@@ -1,6 +1,11 @@
 package com.example.ui.home
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -55,6 +60,7 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
@@ -342,7 +348,7 @@ fun RetroMarqueeHeader(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Tv,
-                            contentDescription = "RetroToon",
+                            contentDescription = stringResource(R.string.app_name),
                             tint = Color.White,
                             modifier = Modifier.size(if (isWideScreen) 24.dp else 20.dp)
                         )
@@ -373,7 +379,7 @@ fun RetroMarqueeHeader(
                         )
                     }
                     Text(
-                        text = if (isWideScreen) "PUBLIC DOMAIN • INTERNET ARCHIVE" else "PUBLIC DOMAIN",
+                        text = if (isWideScreen) stringResource(R.string.public_domain_archive_header) else stringResource(R.string.public_domain_header),
                         color = Color.White.copy(alpha = 0.6f),
                         fontSize = if (isWideScreen) 10.sp else 8.sp,
                         fontWeight = FontWeight.Bold,
@@ -392,7 +398,7 @@ fun RetroMarqueeHeader(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     NavPillButton(
-                        title = "Featured",
+                        title = stringResource(R.string.nav_featured),
                         icon = Icons.Default.Tv,
                         selected = activeTab == "home",
                         onClick = { onTabSelected("home") },
@@ -400,7 +406,7 @@ fun RetroMarqueeHeader(
                     )
 
                     NavPillButton(
-                        title = "Search",
+                        title = stringResource(R.string.nav_search),
                         icon = Icons.Default.Search,
                         selected = activeTab == "search",
                         onClick = { onTabSelected("search") },
@@ -408,7 +414,7 @@ fun RetroMarqueeHeader(
                     )
 
                     NavPillButton(
-                        title = if (watchlistCount > 0) "Watchlist ($watchlistCount)" else "Watchlist",
+                        title = if (watchlistCount > 0) "${stringResource(R.string.nav_watchlist)} ($watchlistCount)" else stringResource(R.string.nav_watchlist),
                         icon = Icons.Default.Bookmark,
                         selected = activeTab == "watchlist",
                         onClick = { onTabSelected("watchlist") },
@@ -428,7 +434,7 @@ fun RetroMarqueeHeader(
                             ) {
                                 Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = RetroGold, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("★ Supporter", color = RetroGold, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.supporter_badge), color = RetroGold, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     } else {
@@ -450,7 +456,7 @@ fun RetroMarqueeHeader(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.VolunteerActivism,
-                                contentDescription = "Support Development",
+                                contentDescription = stringResource(R.string.support),
                                 tint = if (supportFocused) CinemaBlack else RetroGold,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -498,7 +504,7 @@ fun RetroMarqueeHeader(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.VolunteerActivism,
-                                contentDescription = "Support Development",
+                                contentDescription = stringResource(R.string.support),
                                 tint = if (supportFocused) CinemaBlack else RetroGold,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -517,7 +523,7 @@ fun RetroMarqueeHeader(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
+                            contentDescription = stringResource(R.string.nav_search),
                             tint = if (activeTab == "search") RetroGold else Color.White,
                             modifier = Modifier.size(20.dp)
                         )
@@ -550,7 +556,7 @@ fun RetroMarqueeHeader(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Bookmark,
-                                    contentDescription = "Watchlist",
+                                    contentDescription = stringResource(R.string.nav_watchlist),
                                     tint = if (activeTab == "watchlist") RetroGold else Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -558,7 +564,7 @@ fun RetroMarqueeHeader(
                         } else {
                             Icon(
                                 imageVector = Icons.Default.BookmarkBorder,
-                                contentDescription = "Watchlist",
+                                contentDescription = stringResource(R.string.nav_watchlist),
                                 tint = if (activeTab == "watchlist") RetroGold else Color.White,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -593,13 +599,13 @@ fun RetroBottomNavBar(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Tv,
-                        contentDescription = "Featured",
+                        contentDescription = stringResource(R.string.nav_featured),
                         modifier = Modifier.size(22.dp)
                     )
                 },
                 label = {
                     Text(
-                        text = "Featured",
+                        text = stringResource(R.string.nav_featured),
                         fontSize = 11.sp,
                         fontWeight = if (activeTab == "home") FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1,
@@ -622,13 +628,13 @@ fun RetroBottomNavBar(
                 icon = {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
+                        contentDescription = stringResource(R.string.nav_search),
                         modifier = Modifier.size(22.dp)
                     )
                 },
                 label = {
                     Text(
-                        text = "Search",
+                        text = stringResource(R.string.nav_search),
                         fontSize = 11.sp,
                         fontWeight = if (activeTab == "search") FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1,
@@ -666,21 +672,21 @@ fun RetroBottomNavBar(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Bookmark,
-                                contentDescription = "Watchlist",
+                                contentDescription = stringResource(R.string.nav_watchlist),
                                 modifier = Modifier.size(22.dp)
                             )
                         }
                     } else {
                         Icon(
                             imageVector = Icons.Default.Bookmark,
-                            contentDescription = "Watchlist",
+                            contentDescription = stringResource(R.string.nav_watchlist),
                             modifier = Modifier.size(22.dp)
                         )
                     }
                 },
                 label = {
                     Text(
-                        text = "Watchlist",
+                        text = stringResource(R.string.nav_watchlist),
                         fontSize = 11.sp,
                         fontWeight = if (activeTab == "watchlist") FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1,
@@ -1014,11 +1020,25 @@ fun HomeCatalogView(
             }
         }
 
+        // Section: My List (Watchlist) row on Home Screen (from Room Watchlist table)
+        if (uiState.watchlistItems.isNotEmpty()) {
+            item {
+                CartoonCarouselRow(
+                    title = stringResource(R.string.my_list_title),
+                    items = uiState.watchlistItems,
+                    isWideScreen = isWideScreen,
+                    onPlay = onPlay,
+                    onSelectDetail = onSelectDetail,
+                    onToggleWatchlist = onToggleWatchlist
+                )
+            }
+        }
+
         // Section: Popular Classics (shown on ALL)
         if (uiState.categoryFilter == "ALL" && uiState.featuredList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
-                    title = "🔥 Popular Classic Cartoons",
+                    title = "🔥 ${stringResource(R.string.popular_cartoons)}",
                     items = uiState.featuredList,
                     isWideScreen = isWideScreen,
                     onPlay = onPlay,
@@ -1032,7 +1052,7 @@ fun HomeCatalogView(
         if (uiState.categoryFilter == "VINTAGE" && vintageList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
-                    title = "🕰️ Golden Age Vintage (Pre-1940 Gems)",
+                    title = stringResource(R.string.row_vintage_title),
                     items = vintageList,
                     isWideScreen = isWideScreen,
                     onPlay = onPlay,
@@ -1046,7 +1066,7 @@ fun HomeCatalogView(
         if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "CARTOONS" || uiState.categoryFilter == "SUPERMAN") && uiState.supermanList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
-                    title = "⚡ Fleischer Superman Animated Serials (1941-1943)",
+                    title = stringResource(R.string.row_superman_title),
                     items = uiState.supermanList,
                     isWideScreen = isWideScreen,
                     onPlay = onPlay,
@@ -1060,7 +1080,7 @@ fun HomeCatalogView(
         if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "CARTOONS" || uiState.categoryFilter == "POPEYE") && uiState.popeyeList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
-                    title = "⚓ Popeye the Sailor",
+                    title = "⚓ ${stringResource(R.string.category_popeye)}",
                     items = uiState.popeyeList,
                     isWideScreen = isWideScreen,
                     onPlay = onPlay,
@@ -1074,7 +1094,7 @@ fun HomeCatalogView(
         if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "CARTOONS" || uiState.categoryFilter == "VINTAGE" || uiState.categoryFilter == "BETTY") && uiState.bettyList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
-                    title = "💃 Betty Boop & Fleischer Jazz Gems",
+                    title = stringResource(R.string.row_betty_title),
                     items = uiState.bettyList,
                     isWideScreen = isWideScreen,
                     onPlay = onPlay,
@@ -1088,7 +1108,7 @@ fun HomeCatalogView(
         if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "SERIALS") && uiState.serialsList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
-                    title = "🎩 Buster Keaton & Silent Comedy Serials",
+                    title = stringResource(R.string.row_serials_title),
                     items = uiState.serialsList,
                     isWideScreen = isWideScreen,
                     onPlay = onPlay,
@@ -1218,7 +1238,7 @@ fun HeroBillboard(
                             shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
-                                text = "LEANBACK FEATURED",
+                                text = stringResource(R.string.leanback_featured),
                                 color = Color.White,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -1290,7 +1310,7 @@ fun HeroBillboard(
                         ) {
                             Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Stream Short", fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, softWrap = false)
+                            Text(stringResource(R.string.play_stream), fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, softWrap = false)
                         }
 
                         OutlinedButton(
@@ -1313,7 +1333,7 @@ fun HeroBillboard(
                                 tint = if (cartoon.isFavorite || listFocused) RetroGold else Color.White
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (cartoon.isFavorite) "Saved" else "+ My List", fontSize = 13.sp, maxLines = 1, softWrap = false)
+                            Text(if (cartoon.isFavorite) stringResource(R.string.saved) else stringResource(R.string.my_list), fontSize = 13.sp, maxLines = 1, softWrap = false)
                         }
 
                         OutlinedButton(
@@ -1333,11 +1353,11 @@ fun HeroBillboard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Shuffle,
-                                contentDescription = "Shuffle Marathon",
+                                contentDescription = stringResource(R.string.shuffle),
                                 tint = RetroGold
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Shuffle", fontSize = 13.sp, maxLines = 1, softWrap = false)
+                            Text(stringResource(R.string.shuffle), fontSize = 13.sp, maxLines = 1, softWrap = false)
                         }
 
                         IconButton(
@@ -1357,7 +1377,7 @@ fun HeroBillboard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
-                                contentDescription = "Details",
+                                contentDescription = stringResource(R.string.details),
                                 tint = if (detailsFocused) RetroGold else Color.White
                             )
                         }
@@ -1435,7 +1455,7 @@ fun HeroBillboard(
                         ) {
                             Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Play", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1, softWrap = false)
+                            Text(stringResource(R.string.play), fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1, softWrap = false)
                         }
 
                         OutlinedButton(
@@ -1455,7 +1475,12 @@ fun HeroBillboard(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(3.dp))
-                            Text(if (cartoon.isFavorite) "Saved" else "List", fontSize = 12.5.sp, maxLines = 1, softWrap = false)
+                            Text(
+                                if (cartoon.isFavorite) stringResource(R.string.saved) else stringResource(R.string.list_short),
+                                fontSize = 12.5.sp,
+                                maxLines = 1,
+                                softWrap = false
+                            )
                         }
 
                         IconButton(
@@ -1467,7 +1492,7 @@ fun HeroBillboard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Shuffle,
-                                contentDescription = "Shuffle Marathon",
+                                contentDescription = stringResource(R.string.shuffle),
                                 tint = RetroGold,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -1482,7 +1507,7 @@ fun HeroBillboard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
-                                contentDescription = "Details",
+                                contentDescription = stringResource(R.string.details),
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -1625,7 +1650,7 @@ fun CartoonCarouselRow(
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = "${items.size} shorts",
+                text = stringResource(R.string.shorts_count, items.size),
                 color = Color.White.copy(alpha = 0.5f),
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -1735,8 +1760,26 @@ fun CartoonPosterCard(
                     )
                 }
 
-                // Resume badge top-left when watch progress exists
-                if (cartoon.watchProgressMs > 0) {
+                // 10-second preview badge when focused, or Resume badge when watch progress exists
+                if (isFocused) {
+                    Surface(
+                        color = RetroGold,
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .testTag("preview_badge_${cartoon.id}")
+                    ) {
+                        Text(
+                            text = stringResource(R.string.trailer_preview_badge),
+                            color = CinemaBlack,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.4.sp,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                } else if (cartoon.watchProgressMs > 0) {
                     Surface(
                         color = RetroRuby.copy(alpha = 0.9f),
                         shape = RoundedCornerShape(4.dp),
@@ -1745,7 +1788,7 @@ fun CartoonPosterCard(
                             .padding(6.dp)
                     ) {
                         Text(
-                            text = "RESUME",
+                            text = stringResource(R.string.resume),
                             color = Color.White,
                             fontSize = 8.5.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -1753,7 +1796,9 @@ fun CartoonPosterCard(
                             modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                         )
                     }
+                }
 
+                if (cartoon.watchProgressMs > 0) {
                     val progressFraction = if (cartoon.durationMs > 0) {
                         (cartoon.watchProgressMs.toFloat() / cartoon.durationMs.toFloat()).coerceIn(0.08f, 1f)
                     } else {
@@ -1791,7 +1836,7 @@ fun CartoonPosterCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
-                                contentDescription = "Remove from History",
+                                contentDescription = stringResource(R.string.remove_from_history),
                                 tint = Color.White.copy(alpha = 0.9f),
                                 modifier = Modifier.size(14.dp)
                             )
@@ -1816,7 +1861,7 @@ fun CartoonPosterCard(
                     ) {
                         Icon(
                             imageVector = if (cartoon.isFavorite) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                            contentDescription = "Watchlist",
+                            contentDescription = stringResource(R.string.nav_watchlist),
                             tint = if (cartoon.isFavorite) RetroGold else Color.White,
                             modifier = Modifier.size(15.dp)
                         )
@@ -1843,7 +1888,7 @@ fun CartoonPosterCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play",
+                        contentDescription = stringResource(R.string.play),
                         tint = playIconTint,
                         modifier = Modifier.size(22.dp)
                     )
@@ -1900,11 +1945,39 @@ fun SearchView(
     onSelectDetail: (CartoonItem) -> Unit,
     onToggleWatchlist: (CartoonItem) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val quickPills = listOf("Superman", "Popeye", "Betty Boop", "Felix the Cat", "Buster Keaton", "Casper", "Little Audrey")
     val firstPillFocusRequester = remember { FocusRequester() }
     val tvTextFieldFocusRequester = remember { FocusRequester() }
     var isTvKeyboardActive by remember { mutableStateOf(false) }
     var tvSearchBarFocused by remember { mutableStateOf(false) }
+    var voiceMicFocused by remember { mutableStateOf(false) }
+
+    // 100% Free On-Device Android Voice Search (zero permissions required via system RecognizerIntent)
+    val voiceSearchLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            val spoken = matches?.firstOrNull().orEmpty()
+            if (spoken.isNotBlank()) {
+                val parsedQuery = com.example.data.ai.ArchivalHistorianHelper.extractSearchKeywordsFromVoice(spoken)
+                onQueryChange(parsedQuery)
+            }
+        }
+    }
+
+    val launchVoiceSearch: () -> Unit = {
+        try {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PROMPT, context.getString(R.string.voice_search_prompt))
+            }
+            voiceSearchLauncher.launch(intent)
+        } catch (_: Exception) {
+            isTvKeyboardActive = true
+        }
+    }
 
     LaunchedEffect(isWideScreen) {
         if (isWideScreen) {
@@ -1961,7 +2034,7 @@ fun SearchView(
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = searchQuery.ifEmpty {
-                                "Press OK to type, or select a quick tag below..."
+                                stringResource(R.string.search_tv_hint)
                             },
                             color = if (searchQuery.isEmpty()) Color.White.copy(alpha = 0.6f) else Color.White,
                             fontSize = 14.sp,
@@ -1969,12 +2042,26 @@ fun SearchView(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    if (searchQuery.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { onQueryChange("") },
+                                modifier = Modifier.focusProperties { canFocus = false }
+                            ) {
+                                Icon(imageVector = Icons.Default.Clear, contentDescription = stringResource(R.string.clear_label), tint = Color.White)
+                            }
+                        }
                         IconButton(
-                            onClick = { onQueryChange("") },
-                            modifier = Modifier.focusProperties { canFocus = false }
+                            onClick = launchVoiceSearch,
+                            modifier = Modifier
+                                .onFocusChanged { voiceMicFocused = it.isFocused }
+                                .testTag("voice_search_button")
                         ) {
-                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = stringResource(R.string.voice_search),
+                                tint = if (voiceMicFocused) Color.White else RetroGold
+                            )
                         }
                     }
                 }
@@ -1985,7 +2072,7 @@ fun SearchView(
                 onValueChange = onQueryChange,
                 placeholder = {
                     Text(
-                        text = "Search Internet Archive public domain cartoons, characters, serials...",
+                        text = stringResource(R.string.search_placeholder),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1995,12 +2082,24 @@ fun SearchView(
                     Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = RetroGold)
                 },
                 trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { onQueryChange("") },
+                                modifier = Modifier.focusProperties { canFocus = false }
+                            ) {
+                                Icon(imageVector = Icons.Default.Clear, contentDescription = stringResource(R.string.clear_label), tint = Color.White)
+                            }
+                        }
                         IconButton(
-                            onClick = { onQueryChange("") },
-                            modifier = Modifier.focusProperties { canFocus = false }
+                            onClick = launchVoiceSearch,
+                            modifier = Modifier.testTag("voice_search_button")
                         ) {
-                            Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", tint = Color.White)
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = stringResource(R.string.voice_search),
+                                tint = RetroGold
+                            )
                         }
                     }
                 },
@@ -2080,7 +2179,7 @@ fun SearchView(
                     CircularProgressIndicator(color = RetroGold)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Searching Internet Archive public domain archives...",
+                        text = stringResource(R.string.searching_archive),
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 13.sp
                     )
@@ -2094,7 +2193,7 @@ fun SearchView(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No cartoon shorts found for '$searchQuery'. Try 'Popeye', 'Superman', or 'Betty Boop'!",
+                    text = stringResource(R.string.no_cartoons_found, searchQuery),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 14.sp
                 )
@@ -2114,21 +2213,21 @@ fun SearchView(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Stream Thousands of Pre-1960s Public Domain Shorts",
+                    text = stringResource(R.string.stream_thousands_title),
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Search by character, studio (Fleischer, Famous, Van Beuren), or short title.",
+                    text = stringResource(R.string.stream_thousands_subtitle),
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 13.sp
                 )
             }
         } else {
             Text(
-                text = "${searchResults.size} titles found from Archive.org",
+                text = stringResource(R.string.titles_found, searchResults.size),
                 color = RetroGold,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -2182,14 +2281,14 @@ fun WatchlistView(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Your Watchlist is Empty",
+                text = stringResource(R.string.empty_watchlist_title),
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Bookmark your favorite Betty Boop, Popeye, and Superman serials to watch anytime.",
+                text = stringResource(R.string.empty_watchlist_subtitle),
                 color = Color.White.copy(alpha = 0.65f),
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
@@ -2216,7 +2315,7 @@ fun WatchlistView(
                     .focusRequester(browseFocusRequester)
                     .onFocusChanged { browseFocused = it.isFocused }
             ) {
-                Text("Browse Classic Cartoons", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.browse_cartoons), fontWeight = FontWeight.Bold)
             }
         }
     } else {
@@ -2226,7 +2325,7 @@ fun WatchlistView(
                 .padding(if (isWideScreen) 28.dp else 20.dp)
         ) {
             Text(
-                text = "My Saved Cartoons (${items.size})",
+                text = stringResource(R.string.my_saved_cartoons, items.size),
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold

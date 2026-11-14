@@ -77,6 +77,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.res.stringResource
+import com.example.R
 import com.example.data.donation.DonationManager
 import com.example.data.donation.DonationTier
 import com.example.ui.theme.CinemaBlack
@@ -152,7 +154,7 @@ fun DonationDialog(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Support Indie Preservation",
+                                text = stringResource(R.string.support_indie_preservation),
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
@@ -160,7 +162,7 @@ fun DonationDialog(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "100% Free • Ad-Free • Public Domain",
+                                text = stringResource(R.string.donation_header_subtitle),
                                 color = RetroGold,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -184,7 +186,7 @@ fun DonationDialog(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.close),
                             tint = if (closeFocused) CinemaBlack else Color.White.copy(alpha = 0.6f)
                         )
                     }
@@ -215,13 +217,13 @@ fun DonationDialog(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "★ Active Supporter Status",
+                                    text = stringResource(R.string.active_supporter_status),
                                     color = RetroGold,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
                                 )
                                 Text(
-                                    text = "Thank you for supporting classic animation restoration!",
+                                    text = stringResource(R.string.thank_you_support),
                                     color = Color.White.copy(alpha = 0.85f),
                                     fontSize = 11.sp
                                 )
@@ -279,7 +281,7 @@ fun DonationDialog(
                             .then(if (tab0Focused) Modifier.border(1.5.dp, Color.White, RoundedCornerShape(8.dp)) else Modifier),
                         text = {
                             Text(
-                                "Google Play",
+                                stringResource(R.string.method_google_play),
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -296,7 +298,7 @@ fun DonationDialog(
                             .then(if (tab1Focused) Modifier.border(1.5.dp, Color.White, RoundedCornerShape(8.dp)) else Modifier),
                         text = {
                             Text(
-                                "PayPal / QR",
+                                stringResource(R.string.method_paypal),
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -313,7 +315,7 @@ fun DonationDialog(
                             .then(if (tab2Focused) Modifier.border(1.5.dp, Color.White, RoundedCornerShape(8.dp)) else Modifier),
                         text = {
                             Text(
-                                "Ko-fi Tip",
+                                stringResource(R.string.method_kofi),
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -332,8 +334,8 @@ fun DonationDialog(
                         onSelectTier = { tier ->
                             donationManager.markAsSupporter(tier.title)
                             onSupporterStatusUpdated(tier.title)
-                            thankYouMessage = "🎉 Thank you for supporting with ${tier.title}! Permanent supporter status activated."
-                            Toast.makeText(context, "Supporter status activated!", Toast.LENGTH_SHORT).show()
+                            thankYouMessage = context.getString(R.string.supporter_thank_you_tier, tier.title)
+                            Toast.makeText(context, context.getString(R.string.supporter_activated_toast), Toast.LENGTH_SHORT).show()
                         }
                     )
                     1 -> PayPalView(
@@ -346,7 +348,7 @@ fun DonationDialog(
                             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             val clip = ClipData.newPlainText("PayPal Link", "https://paypal.me/retrotoontv/${selectedPresetAmount}USD")
                             cm.setPrimaryClip(clip)
-                            Toast.makeText(context, "PayPal link copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.paypal_copied_toast), Toast.LENGTH_SHORT).show()
                         }
                     )
                     2 -> KofiView(
@@ -355,7 +357,7 @@ fun DonationDialog(
                             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             val clip = ClipData.newPlainText("Ko-fi Link", "https://ko-fi.com/retrotoontv")
                             cm.setPrimaryClip(clip)
-                            Toast.makeText(context, "Ko-fi link copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.kofi_copied_toast), Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -364,7 +366,7 @@ fun DonationDialog(
 
                 // Non-intrusive guarantee note
                 Text(
-                    text = "Voluntary contributions keep RetroToon TV 100% ad-free and assist in digitizing rare Fleischer & Van Beuren cartoons.",
+                    text = stringResource(R.string.donation_body_text),
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 11.sp,
                     lineHeight = 14.sp,
@@ -472,7 +474,7 @@ private fun PayPalView(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Choose a Tip Amount",
+            text = stringResource(R.string.choose_tip_amount),
             color = Color.White,
             fontWeight = FontWeight.SemiBold,
             fontSize = 13.sp
@@ -591,7 +593,7 @@ private fun PayPalView(
             ) {
                 Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Open PayPal", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
+                Text(stringResource(R.string.open_paypal), fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
             }
 
             OutlinedButton(
@@ -609,7 +611,7 @@ private fun PayPalView(
             ) {
                 Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Copy", fontSize = 12.sp, maxLines = 1, softWrap = false)
+                Text(stringResource(R.string.copy), fontSize = 12.sp, maxLines = 1, softWrap = false)
             }
         }
     }
@@ -642,7 +644,7 @@ private fun KofiView(
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Buy Me a Coffee on Ko-fi",
+            text = stringResource(R.string.buy_coffee_kofi),
             color = Color.White,
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp
@@ -651,7 +653,7 @@ private fun KofiView(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "A flexible tip jar for indie open-source applications. Support public domain film digitization with any amount.",
+            text = stringResource(R.string.kofi_description),
             color = Color.White.copy(alpha = 0.7f),
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
@@ -682,7 +684,7 @@ private fun KofiView(
             ) {
                 Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Tip on Ko-fi", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
+                Text(stringResource(R.string.tip_on_kofi), fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, softWrap = false)
             }
 
             OutlinedButton(
@@ -700,7 +702,7 @@ private fun KofiView(
             ) {
                 Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Copy Link", fontSize = 12.sp, maxLines = 1, softWrap = false)
+                Text(stringResource(R.string.copy_link), fontSize = 12.sp, maxLines = 1, softWrap = false)
             }
         }
     }

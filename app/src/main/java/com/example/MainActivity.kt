@@ -115,6 +115,22 @@ fun RetroToonApp(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Keep Android TV & mobile screen awake whenever the video player is active
+    DisposableEffect(uiState.playingItem != null) {
+        val window = (context as? android.app.Activity)?.window
+        if (uiState.playingItem != null) {
+            window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            if (uiState.playingItem == null) {
+                window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
 
     // Restore natural device orientation after closing the video player on mobile/tablet
     LaunchedEffect(uiState.playingItem == null) {
@@ -156,6 +172,7 @@ fun RetroToonApp(
                         upNextCartoon = uiState.upNextItem,
                         streamUrl = uiState.resolvedStreamUrl,
                         subtitleUrl = uiState.resolvedSubtitleUrl,
+                        hasAlternativeStream = uiState.candidateStreamUrls.size > 1,
                         isResolving = uiState.isResolvingStream,
                         isInPipMode = uiState.isInPipMode,
                         filmEffect = uiState.filmEffect,

@@ -5,8 +5,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.R
 import com.example.data.donation.DonationManager
 import com.example.data.download.DownloadHelper
 import com.example.data.engagement.AppSuggestion
@@ -20,17 +22,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-enum class FilmEffect(val title: String) {
-    CLEAN("Clean Digital"),
-    SEPIA_GRAIN("1930s Film Reel"),
-    BLACK_WHITE("B&W Cinema"),
-    CRT_GLOW("Retro CRT")
+enum class FilmEffect(@param:StringRes val titleRes: Int) {
+    CLEAN(R.string.effect_clean),
+    SEPIA_GRAIN(R.string.effect_sepia_grain),
+    BLACK_WHITE(R.string.effect_black_white),
+    CRT_GLOW(R.string.effect_crt_glow)
 }
 
-enum class AspectMode(val title: String) {
-    ORIGINAL("4:3 Academy"),
-    FIT("Fit Screen"),
-    FILL("16:9 Fill")
+enum class AspectMode(@param:StringRes val titleRes: Int) {
+    ORIGINAL(R.string.aspect_original),
+    FIT(R.string.aspect_fit),
+    FILL(R.string.aspect_fill)
 }
 
 data class UiState(
@@ -490,7 +492,7 @@ class RetroToonViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 val clip = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clip.setPrimaryClip(ClipData.newPlainText("Stream URL", resolvedUrl))
-                Toast.makeText(appContext, "Direct MP4 link copied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(appContext, appContext.getString(R.string.mp4_link_copied_toast), Toast.LENGTH_SHORT).show()
             } catch (_: Exception) {}
         }
     }

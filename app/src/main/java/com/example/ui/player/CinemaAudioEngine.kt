@@ -5,10 +5,12 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.audiofx.LoudnessEnhancer
 import androidx.annotation.OptIn
+import androidx.annotation.StringRes
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
+import com.example.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,11 +26,11 @@ import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.sin
 
-enum class PlayerAudioMode(val label: String) {
-    BOOST("Boost"),
-    NORMAL("Sound"),
-    PIANO("Piano"),
-    MUTE("Muted")
+enum class PlayerAudioMode(@param:StringRes val labelRes: Int) {
+    BOOST(R.string.audio_boost),
+    NORMAL(R.string.audio_normal),
+    PIANO(R.string.audio_piano),
+    MUTE(R.string.audio_muted)
 }
 
 /**

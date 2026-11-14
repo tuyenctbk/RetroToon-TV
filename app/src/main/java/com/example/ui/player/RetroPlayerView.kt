@@ -1,9 +1,11 @@
 package com.example.ui.player
 
+import android.app.Activity
 import android.content.Context
 import android.net.Uri
 import android.view.KeyEvent
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
@@ -51,6 +53,7 @@ import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.HighQuality
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.MovieFilter
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
@@ -95,7 +98,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import com.example.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -116,7 +122,10 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.example.data.ai.CartoonTriviaAiService
+import com.example.data.ai.DidYouKnowFact
 import com.example.data.model.CartoonItem
+import com.example.playback.RetroPlaybackService
 import com.example.ui.AspectMode
 import com.example.ui.FilmEffect
 import com.example.ui.theme.CinemaBlack
@@ -133,6 +142,7 @@ fun RetroPlayerScreen(
     upNextCartoon: CartoonItem? = null,
     streamUrl: String?,
     subtitleUrl: String? = null,
+    hasAlternativeStream: Boolean = false,
     isResolving: Boolean,
     isInPipMode: Boolean,
     filmEffect: FilmEffect,
@@ -149,15 +159,32 @@ fun RetroPlayerScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val hostView = LocalView.current
+    val isTelevision = remember(context) {
+        context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+    }
     val focusRequester = remember { FocusRequester() }
     val filmEffectFocusRequester = remember { FocusRequester() }
     val nextShortFocusRequester = remember { FocusRequester() }
     val playNextBannerFocusRequester = remember { FocusRequester() }
     var isRootPlayerFocused by remember { mutableStateOf(false) }
 
+    // Prevent Android TV screensaver (DreamService) and display sleep while RetroPlayerScreen is active
+    DisposableEffect(hostView, context) {
+        val prevKeepScreenOn = hostView.keepScreenOn
+        hostView.keepScreenOn = true
+        val activityWindow = (context as? Activity)?.window
+        activityWindow?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose {
+            hostView.keepScreenOn = prevKeepScreenOn
+            activityWindow?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
     val latestCartoon by rememberUpdatedState(cartoon)
     val latestOnSaveProgress by rememberUpdatedState(onSaveProgress)
     val latestOnRetryStream by rememberUpdatedState(onRetryStream)
+    val latestHasAlternativeStream by rememberUpdatedState(hasAlternativeStream)
 
     LaunchedEffect(cartoon.id) {
         try {
@@ -195,6 +222,29 @@ fun RetroPlayerScreen(
     var showRewindGesture by remember { mutableStateOf(false) }
     var showForwardGesture by remember { mutableStateOf(false) }
 
+    // Optional "Did You Know?" AI Historical Context cards during playback
+    var isDidYouKnowEnabled by remember { mutableStateOf(false) }
+    var didYouKnowFacts by remember(cartoon.id) {
+        mutableStateOf(CartoonTriviaAiService.buildCuratedHistoricalFacts(cartoon))
+    }
+    var activeFactIndex by remember(cartoon.id) { mutableIntStateOf(0) }
+
+    LaunchedEffect(cartoon.id) {
+        didYouKnowFacts = CartoonTriviaAiService.getDidYouKnowFacts(context, cartoon)
+        activeFactIndex = 0
+    }
+
+    LaunchedEffect(isDidYouKnowEnabled, isPlaying, didYouKnowFacts.size) {
+        if (isDidYouKnowEnabled && didYouKnowFacts.size > 1) {
+            while (isDidYouKnowEnabled) {
+                delay(12_000L)
+                if (isPlaying) {
+                    activeFactIndex = (activeFactIndex + 1) % didYouKnowFacts.size
+                }
+            }
+        }
+    }
+
     // Marathon autoplay countdown
     var marathonCountdown by remember(cartoon.id) { mutableIntStateOf(5) }
 
@@ -214,19 +264,25 @@ fun RetroPlayerScreen(
             }
         }.setEnableDecoderFallback(true)
 
-        ExoPlayer.Builder(context, renderersFactory).build().apply {
-            playWhenReady = true
-            volume = 1f
-            val audioAttr = AudioAttributes.Builder()
-                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                .setUsage(C.USAGE_MEDIA)
-                .build()
-            setAudioAttributes(audioAttr, true)
-            trackSelectionParameters = trackSelectionParameters
-                .buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
-                .build()
-        }
+        ExoPlayer.Builder(context, renderersFactory)
+            .setSeekBackIncrementMs(10_000L)
+            .setSeekForwardIncrementMs(10_000L)
+            .build()
+            .apply {
+                playWhenReady = true
+                volume = 1f
+                setWakeMode(C.WAKE_MODE_NETWORK)
+                setHandleAudioBecomingNoisy(true)
+                val audioAttr = AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build()
+                setAudioAttributes(audioAttr, true)
+                trackSelectionParameters = trackSelectionParameters
+                    .buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                    .build()
+            }
     }
 
     // Sync volume, optical LoudnessEnhancer (+5.5 dB), and 1920s Ragtime Piano score
@@ -248,9 +304,18 @@ fun RetroPlayerScreen(
         ragtimePiano.setPlaying(shouldPlayPiano)
     }
 
+    var lastPreparedMediaId by remember { mutableStateOf<String?>(null) }
+
     // Connect streamUrl with rich MediaMetadata & optional sidecar subtitles
     LaunchedEffect(streamUrl, subtitleUrl, cartoon.id) {
         if (!streamUrl.isNullOrBlank()) {
+            val isSameMediaSwitch = lastPreparedMediaId == cartoon.id
+            val resumePos = if (isSameMediaSwitch && currentPositionMs > 0L) {
+                currentPositionMs
+            } else {
+                cartoon.watchProgressMs.coerceAtLeast(0L)
+            }
+            lastPreparedMediaId = cartoon.id
             playbackError = null
             isBuffering = true
             isEnded = false
@@ -280,7 +345,7 @@ fun RetroPlayerScreen(
                 itemBuilder.setSubtitleConfigurations(listOf(subConfig))
             }
             exoPlayer.setMediaItem(itemBuilder.build())
-            exoPlayer.seekTo(cartoon.watchProgressMs.coerceAtLeast(0L))
+            exoPlayer.seekTo(resumePos)
             exoPlayer.prepare()
             exoPlayer.play()
         }
@@ -328,9 +393,9 @@ fun RetroPlayerScreen(
                             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
                             .build()
                     } else {
-                        // Video container has no supported audio track: try alternate Archive file once, and enable silent-era piano
+                        // Video container has no supported audio track: try alternate Archive file once if available, and enable silent-era piano
                         isSilentFilmAutoPiano = true
-                        if (!hasTriedAudioFallback) {
+                        if (!hasTriedAudioFallback && latestHasAlternativeStream) {
                             hasTriedAudioFallback = true
                             latestOnRetryStream()
                         }
@@ -353,15 +418,17 @@ fun RetroPlayerScreen(
 
             override fun onPlayerError(error: PlaybackException) {
                 isBuffering = false
-                playbackError = "Archive mirror busy. Swapping to backup format..."
+                playbackError = context.getString(R.string.mirror_busy_error)
             }
         }
         exoPlayer.addListener(listener)
+        val controllerFuture = RetroPlaybackService.attachPlayerAndBindSession(context, exoPlayer)
 
         onDispose {
             ragtimePiano.release()
             audioBooster.release()
             exoPlayer.removeListener(listener)
+            RetroPlaybackService.detachPlayerAndReleaseController(exoPlayer, controllerFuture)
             val currentPos = exoPlayer.currentPosition
             val totalDur = exoPlayer.duration.coerceAtLeast(durationMs)
             if (currentPos > 0 && !isEnded) {
@@ -420,9 +487,19 @@ fun RetroPlayerScreen(
         }
     }
 
-    // Auto-hide OSD controls after idle (only while root video surface has focus, not while navigating toolbar)
-    LaunchedEffect(areControlsVisible, lastInteractionTime, isPlaying, isInPipMode, isEnded, isRootPlayerFocused) {
-        if (areControlsVisible && isPlaying && !isInPipMode && !isEnded && isRootPlayerFocused) {
+    // Auto-hide OSD controls after idle (always auto-hide on touch devices; on TV pause auto-hide while navigating toolbar)
+    LaunchedEffect(
+        areControlsVisible,
+        lastInteractionTime,
+        isPlaying,
+        isInPipMode,
+        isEnded,
+        isRootPlayerFocused,
+        isUserSeeking,
+        isTelevision
+    ) {
+        val shouldAutoHide = !isTelevision || isRootPlayerFocused
+        if (areControlsVisible && isPlaying && !isInPipMode && !isEnded && !isUserSeeking && shouldAutoHide) {
             delay(4000)
             areControlsVisible = false
         }
@@ -596,12 +673,13 @@ fun RetroPlayerScreen(
             }
             .testTag("player_screen_root")
     ) {
-        // Embedded Android Video View
+        // Embedded Android Video View with explicit keepScreenOn for Android TV / Google TV
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = false
+                    keepScreenOn = true
                     layoutParams = FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
@@ -611,6 +689,7 @@ fun RetroPlayerScreen(
             },
             update = { view ->
                 view.resizeMode = resizeMode
+                view.keepScreenOn = isPlaying || isBuffering || isResolving || isEnded
             },
             modifier = Modifier.fillMaxSize()
         )
@@ -727,7 +806,7 @@ fun RetroPlayerScreen(
                 ) {
                     Icon(imageVector = Icons.Default.FastRewind, contentDescription = null, tint = RetroGold)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("-10s", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(stringResource(R.string.rewind_10s), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
             }
         }
@@ -749,7 +828,7 @@ fun RetroPlayerScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("+10s", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(stringResource(R.string.forward_10s), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Spacer(modifier = Modifier.width(6.dp))
                     Icon(imageVector = Icons.Default.FastForward, contentDescription = null, tint = RetroGold)
                 }
@@ -778,14 +857,14 @@ fun RetroPlayerScreen(
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        text = "Archive.org Mirror Hiccup",
+                        text = stringResource(R.string.mirror_hiccup_title),
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Switching to backup mirror stream for this public domain short...",
+                        text = stringResource(R.string.mirror_hiccup_desc),
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 12.sp
                     )
@@ -798,7 +877,7 @@ fun RetroPlayerScreen(
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Switch to Backup Format", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.switch_backup), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -819,7 +898,7 @@ fun RetroPlayerScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "SHORT CONCLUDED",
+                        text = stringResource(R.string.short_concluded),
                         color = RetroGold,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -827,7 +906,7 @@ fun RetroPlayerScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Up Next in Marathon in ${marathonCountdown}s",
+                        text = stringResource(R.string.up_next_in_countdown, marathonCountdown),
                         color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
@@ -856,7 +935,7 @@ fun RetroPlayerScreen(
                         ) {
                             Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Play Next Now", fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.play_next_now), fontWeight = FontWeight.Bold)
                         }
                         var isReplayFocused by remember { mutableStateOf(false) }
                         OutlinedButton(
@@ -876,7 +955,7 @@ fun RetroPlayerScreen(
                         ) {
                             Icon(imageVector = Icons.Default.Replay, contentDescription = null, tint = Color.White)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Replay", color = Color.White)
+                            Text(stringResource(R.string.replay), color = Color.White)
                         }
                     }
 
@@ -896,8 +975,8 @@ fun RetroPlayerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
-                            Text("☕ Enjoyed this classic short? ", color = Color.White.copy(alpha = 0.8f), fontSize = 11.5.sp)
-                            Text("Buy dev a coffee", color = RetroGold, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
+                            Text(stringResource(R.string.buy_dev_coffee), color = Color.White.copy(alpha = 0.8f), fontSize = 11.5.sp)
+                            Text(stringResource(R.string.buy_dev_coffee_action), color = RetroGold, fontWeight = FontWeight.Bold, fontSize = 11.5.sp)
                         }
                     }
                 }
@@ -921,11 +1000,98 @@ fun RetroPlayerScreen(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = if (isResolving) "Connecting Archive.org Direct Stream..." else "Loading Film Reel...",
+                        text = if (isResolving) stringResource(R.string.connecting_archive) else stringResource(R.string.loading_film_reel),
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+
+        // Optional "Did You Know?" Historical Context Card during video playback
+        AnimatedVisibility(
+            visible = isDidYouKnowEnabled && !isInPipMode && !isEnded && playbackError == null && didYouKnowFacts.isNotEmpty(),
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(
+                    start = 24.dp,
+                    end = 24.dp,
+                    bottom = if (areControlsVisible) 96.dp else 28.dp
+                )
+        ) {
+            val currentFact = didYouKnowFacts[activeFactIndex % didYouKnowFacts.size]
+            Surface(
+                color = CinemaDark.copy(alpha = 0.90f),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, RetroGold.copy(alpha = 0.65f)),
+                modifier = Modifier
+                    .fillMaxWidth(0.68f)
+                    .testTag("player_did_you_know_card")
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Lightbulb,
+                                contentDescription = null,
+                                tint = RetroGold,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.did_you_know_header, currentFact.categoryBadge),
+                                color = RetroGold,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.next_fact),
+                                color = RetroCream,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clickable {
+                                        activeFactIndex = (activeFactIndex + 1) % didYouKnowFacts.size
+                                    }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    .testTag("player_did_you_know_next")
+                            )
+                            Text(
+                                text = "✕",
+                                color = Color.White.copy(alpha = 0.65f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clickable { isDidYouKnowEnabled = false }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    .testTag("player_did_you_know_close")
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = currentFact.factText,
+                        color = Color.White.copy(alpha = 0.92f),
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -966,7 +1132,7 @@ fun RetroPlayerScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Close Player",
+                            contentDescription = stringResource(R.string.close_player),
                             tint = Color.White
                         )
                     }
@@ -997,7 +1163,7 @@ fun RetroPlayerScreen(
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
-                                    text = "PD ARCHIVE",
+                                    text = stringResource(R.string.pd_archive_badge),
                                     color = Color.White,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
@@ -1014,7 +1180,7 @@ fun RetroPlayerScreen(
                                     border = androidx.compose.foundation.BorderStroke(0.75.dp, RetroGold)
                                 ) {
                                     Text(
-                                        text = "🎹 PIANO SCORE",
+                                        text = stringResource(R.string.piano_score_badge),
                                         color = RetroGold,
                                         fontSize = 8.5.sp,
                                         fontWeight = FontWeight.Bold,
@@ -1028,9 +1194,6 @@ fun RetroPlayerScreen(
                     }
 
                     // Action Buttons (Audio, PiP, Filter, Aspect, CC, Rotate) aligned to top-right
-                    val isTelevision = remember(context) {
-                        context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
-                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -1059,14 +1222,39 @@ fun RetroPlayerScreen(
                                 PlayerAudioMode.PIANO -> Icons.Default.MusicNote
                                 PlayerAudioMode.MUTE -> Icons.AutoMirrored.Filled.VolumeOff
                             }
+                            val audioLabel = stringResource(audioMode.labelRes)
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
                                     imageVector = audioIcon,
-                                    contentDescription = "Audio Mode: ${audioMode.label}",
+                                    contentDescription = stringResource(R.string.audio_mode_label, audioLabel),
                                     tint = audioTint,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Text(text = audioMode.label, color = audioTint, fontSize = 8.sp)
+                                Text(text = audioLabel, color = audioTint, fontSize = 8.sp)
+                            }
+                        }
+
+                        // "Did You Know?" AI Historical Context Cards Toggle
+                        TvFocusableIconButton(
+                            onClick = {
+                                isDidYouKnowEnabled = !isDidYouKnowEnabled
+                                lastInteractionTime = System.currentTimeMillis()
+                            },
+                            tag = "player_did_you_know_toggle"
+                        ) {
+                            val factTint = if (isDidYouKnowEnabled) RetroGold else Color.White.copy(alpha = 0.85f)
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Lightbulb,
+                                    contentDescription = stringResource(R.string.did_you_know_toggle_desc),
+                                    tint = factTint,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = if (isDidYouKnowEnabled) stringResource(R.string.facts_on) else stringResource(R.string.facts_off),
+                                    color = factTint,
+                                    fontSize = 8.sp
+                                )
                             }
                         }
 
@@ -1078,11 +1266,11 @@ fun RetroPlayerScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
                                     imageVector = Icons.Default.PictureInPicture,
-                                    contentDescription = "Picture in Picture",
+                                    contentDescription = stringResource(R.string.pip_desc),
                                     tint = Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Text(text = "PiP", color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
+                                Text(text = stringResource(R.string.pip_label), color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
                             }
                         }
 
@@ -1104,11 +1292,11 @@ fun RetroPlayerScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
                                     imageVector = Icons.Default.MovieFilter,
-                                    contentDescription = "Vintage Filter",
+                                    contentDescription = stringResource(R.string.vintage_filter_desc),
                                     tint = RetroGold,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Text(text = filmEffect.title.take(5), color = RetroGold, fontSize = 8.sp)
+                                Text(text = stringResource(filmEffect.titleRes).take(5), color = RetroGold, fontSize = 8.sp)
                             }
                         }
 
@@ -1128,11 +1316,11 @@ fun RetroPlayerScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
                                     imageVector = Icons.Default.AspectRatio,
-                                    contentDescription = "Aspect Ratio",
+                                    contentDescription = stringResource(R.string.aspect_ratio_desc),
                                     tint = Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Text(text = aspectMode.title.take(4), color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
+                                Text(text = stringResource(aspectMode.titleRes).take(4), color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
                             }
                         }
 
@@ -1152,12 +1340,12 @@ fun RetroPlayerScreen(
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(
                                         imageVector = Icons.Default.ClosedCaption,
-                                        contentDescription = "Closed Captions",
+                                        contentDescription = stringResource(R.string.closed_captions_desc),
                                         tint = if (areSubtitlesEnabled) RetroGold else Color.White.copy(alpha = 0.6f),
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
-                                        text = if (areSubtitlesEnabled) "CC On" else "CC Off",
+                                        text = if (areSubtitlesEnabled) stringResource(R.string.cc_on) else stringResource(R.string.cc_off),
                                         color = if (areSubtitlesEnabled) RetroGold else Color.White.copy(alpha = 0.7f),
                                         fontSize = 8.sp
                                     )
@@ -1177,11 +1365,11 @@ fun RetroPlayerScreen(
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Icon(
                                         imageVector = Icons.Default.ScreenRotation,
-                                        contentDescription = "Rotate",
+                                        contentDescription = stringResource(R.string.rotate_label),
                                         tint = Color.White,
                                         modifier = Modifier.size(18.dp)
                                     )
-                                    Text(text = "Rotate", color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
+                                    Text(text = stringResource(R.string.rotate_label), color = Color.White.copy(alpha = 0.8f), fontSize = 8.sp)
                                 }
                             }
                         }
@@ -1211,7 +1399,7 @@ fun RetroPlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FastRewind,
-                                contentDescription = "Rewind 10s",
+                                contentDescription = stringResource(R.string.rewind_10s),
                                 tint = Color.White,
                                 modifier = Modifier.size(32.dp)
                             )
@@ -1230,7 +1418,7 @@ fun RetroPlayerScreen(
                         ) {
                             Icon(
                                 imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause" else "Play",
+                                contentDescription = if (isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
                                 tint = CinemaBlack,
                                 modifier = Modifier.size(40.dp)
                             )
@@ -1252,7 +1440,7 @@ fun RetroPlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FastForward,
-                                contentDescription = "Forward 10s",
+                                contentDescription = stringResource(R.string.forward_10s),
                                 tint = Color.White,
                                 modifier = Modifier.size(32.dp)
                             )
@@ -1317,7 +1505,7 @@ fun RetroPlayerScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "Next Short",
+                                    text = stringResource(R.string.next_short),
                                     color = Color.White.copy(alpha = 0.9f),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -1325,7 +1513,7 @@ fun RetroPlayerScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(
                                     imageVector = Icons.Default.SkipNext,
-                                    contentDescription = "Next Short",
+                                    contentDescription = stringResource(R.string.next_short),
                                     tint = RetroGold,
                                     modifier = Modifier.size(20.dp)
                                 )
