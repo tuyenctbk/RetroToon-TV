@@ -49,15 +49,17 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.focusable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Anchor
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
@@ -86,6 +88,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.example.R
 import androidx.compose.runtime.Composable
@@ -111,8 +114,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Public
+import com.example.data.live.LiveTvChannel
+import com.example.data.live.PublicDomainSuggestion
 import com.example.data.model.CartoonItem
+import com.example.data.model.CartoonSeries
 import com.example.ui.UiState
+import com.example.ui.favorites.CartoonSeriesCard
+import com.example.ui.favorites.MyFavoritesScreen
+import com.example.ui.live.LiveTvGuideScreen
 import com.example.ui.theme.CinemaBlack
 import com.example.ui.theme.CinemaBorder
 import com.example.ui.theme.CinemaDark
@@ -133,6 +145,11 @@ fun HomeScreen(
     onToggleWatchlist: (CartoonItem) -> Unit,
     onSetHero: (CartoonItem) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
+    onTuneLiveChannel: (LiveTvChannel) -> Unit = {},
+    onOpenSeries: (CartoonSeries) -> Unit = {},
+    onPlaySeriesMarathon: (CartoonSeries) -> Unit = {},
+    onToggleFavoriteSeries: (CartoonSeries) -> Unit = {},
+    onPlayFavoritesMarathon: () -> Unit = {},
     onClearRecentlyWatched: () -> Unit = {},
     onRemoveRecentlyWatched: (String) -> Unit = {},
     onShufflePlay: () -> Unit = {},
@@ -168,7 +185,7 @@ fun HomeScreen(
             // Adaptive Header (Clean logo + TV navigation pills on wide screens / quick shortcuts on mobile)
             RetroMarqueeHeader(
                 activeTab = uiState.currentTab,
-                watchlistCount = uiState.watchlistItems.size,
+                watchlistCount = uiState.totalFavoritesCount,
                 isWideScreen = isWideScreen,
                 isSupporter = uiState.isSupporter,
                 onTabSelected = onTabSelected,
@@ -259,6 +276,12 @@ fun HomeScreen(
                                 isWideScreen = isWideScreen,
                                 onCategoryFilterSelected = onCategoryFilterSelected,
                                 onPlay = onPlay,
+                                onTuneLiveChannel = onTuneLiveChannel,
+                                onOpenLiveGuide = { onTabSelected("live") },
+                                onOpenSeries = onOpenSeries,
+                                onPlaySeriesMarathon = onPlaySeriesMarathon,
+                                onToggleFavoriteSeries = onToggleFavoriteSeries,
+                                onOpenFavorites = { onTabSelected("watchlist") },
                                 onSelectDetail = onSelectDetail,
                                 onToggleWatchlist = onToggleWatchlist,
                                 onSetHero = onSetHero,
@@ -269,10 +292,18 @@ fun HomeScreen(
                                 onDismissDonationBanner = onDismissDonationBanner
                             )
                         }
+                        "live" -> {
+                            LiveTvGuideScreen(
+                                channels = uiState.liveChannels,
+                                isWideScreen = isWideScreen,
+                                onTuneChannel = onTuneLiveChannel
+                            )
+                        }
                         "search" -> {
                             SearchView(
                                 searchQuery = uiState.searchQuery,
                                 searchResults = uiState.searchResults,
+                                searchFallbackSuggestion = uiState.searchFallbackSuggestion,
                                 isSearching = uiState.isSearching,
                                 isWideScreen = isWideScreen,
                                 onQueryChange = onSearchQueryChanged,
@@ -282,12 +313,21 @@ fun HomeScreen(
                             )
                         }
                         "watchlist" -> {
-                            WatchlistView(
-                                items = uiState.watchlistItems,
+                            val recommendedSeries = remember(uiState.allSeries) {
+                                uiState.allSeries.filter { !it.isFavorite }
+                            }
+                            MyFavoritesScreen(
+                                favoriteSeries = uiState.favoriteSeries,
+                                recommendedSeries = recommendedSeries,
+                                savedEpisodes = uiState.watchlistItems,
                                 isWideScreen = isWideScreen,
-                                onPlay = onPlay,
+                                onOpenSeries = onOpenSeries,
+                                onPlaySeriesMarathon = onPlaySeriesMarathon,
+                                onToggleFavoriteSeries = onToggleFavoriteSeries,
+                                onPlayEpisode = onPlay,
                                 onSelectDetail = onSelectDetail,
                                 onToggleWatchlist = onToggleWatchlist,
+                                onPlayFavoritesMarathon = onPlayFavoritesMarathon,
                                 onExploreClick = { onTabSelected("home") }
                             )
                         }
@@ -299,7 +339,7 @@ fun HomeScreen(
             if (!isWideScreen) {
                 RetroBottomNavBar(
                     activeTab = uiState.currentTab,
-                    watchlistCount = uiState.watchlistItems.size,
+                    watchlistCount = uiState.totalFavoritesCount,
                     onTabSelected = onTabSelected
                 )
             }
@@ -341,18 +381,17 @@ fun RetroMarqueeHeader(
                     .testTag("brand_logo_button")
             ) {
                 Surface(
-                    color = RetroRuby,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(if (isWideScreen) 40.dp else 34.dp)
+                    color = Color(0xFF100E26),
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.2.dp, RetroGold.copy(alpha = 0.7f)),
+                    modifier = Modifier.size(if (isWideScreen) 42.dp else 36.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Tv,
-                            contentDescription = stringResource(R.string.app_name),
-                            tint = Color.White,
-                            modifier = Modifier.size(if (isWideScreen) 24.dp else 20.dp)
-                        )
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.img_launcher_art),
+                        contentDescription = stringResource(R.string.app_name),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -406,6 +445,15 @@ fun RetroMarqueeHeader(
                     )
 
                     NavPillButton(
+                        title = stringResource(R.string.nav_live_tv),
+                        icon = Icons.Default.LiveTv,
+                        selected = activeTab == "live",
+                        isLiveBadge = true,
+                        onClick = { onTabSelected("live") },
+                        tag = "nav_live_tab"
+                    )
+
+                    NavPillButton(
                         title = stringResource(R.string.nav_search),
                         icon = Icons.Default.Search,
                         selected = activeTab == "search",
@@ -414,8 +462,8 @@ fun RetroMarqueeHeader(
                     )
 
                     NavPillButton(
-                        title = if (watchlistCount > 0) "${stringResource(R.string.nav_watchlist)} ($watchlistCount)" else stringResource(R.string.nav_watchlist),
-                        icon = Icons.Default.Bookmark,
+                        title = if (watchlistCount > 0) "${stringResource(R.string.nav_favorites)} ($watchlistCount)" else stringResource(R.string.nav_favorites),
+                        icon = Icons.Default.Favorite,
                         selected = activeTab == "watchlist",
                         onClick = { onTabSelected("watchlist") },
                         tag = "nav_watchlist_tab"
@@ -442,8 +490,9 @@ fun RetroMarqueeHeader(
                         IconButton(
                             onClick = onOpenDonation,
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(48.dp)
                                 .onFocusChanged { supportFocused = it.isFocused }
+                                .padding(4.dp)
                                 .background(
                                     if (supportFocused) RetroGold else RetroRuby.copy(alpha = 0.15f),
                                     CircleShape
@@ -464,10 +513,10 @@ fun RetroMarqueeHeader(
                     }
                 }
             } else {
-                // Compact mobile header quick actions
+                // Compact mobile header quick actions (all >= 48dp touch targets)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     if (isSupporter) {
                         Surface(
@@ -490,8 +539,9 @@ fun RetroMarqueeHeader(
                         IconButton(
                             onClick = onOpenDonation,
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(48.dp)
                                 .onFocusChanged { supportFocused = it.isFocused }
+                                .padding(4.dp)
                                 .background(
                                     if (supportFocused) RetroGold else RetroRuby.copy(alpha = 0.15f),
                                     CircleShape
@@ -514,7 +564,8 @@ fun RetroMarqueeHeader(
                     IconButton(
                         onClick = { onTabSelected("search") },
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(48.dp)
+                            .padding(4.dp)
                             .background(
                                 if (activeTab == "search") RetroGold.copy(alpha = 0.2f) else Color.Transparent,
                                 CircleShape
@@ -532,7 +583,8 @@ fun RetroMarqueeHeader(
                     IconButton(
                         onClick = { onTabSelected("watchlist") },
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(48.dp)
+                            .padding(4.dp)
                             .background(
                                 if (activeTab == "watchlist") RetroGold.copy(alpha = 0.2f) else Color.Transparent,
                                 CircleShape
@@ -555,16 +607,16 @@ fun RetroMarqueeHeader(
                                 }
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Bookmark,
-                                    contentDescription = stringResource(R.string.nav_watchlist),
-                                    tint = if (activeTab == "watchlist") RetroGold else Color.White,
+                                    imageVector = Icons.Default.Favorite,
+                                    contentDescription = stringResource(R.string.nav_favorites),
+                                    tint = if (activeTab == "watchlist") RetroGold else RetroRuby,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         } else {
                             Icon(
-                                imageVector = Icons.Default.BookmarkBorder,
-                                contentDescription = stringResource(R.string.nav_watchlist),
+                                imageVector = Icons.Default.FavoriteBorder,
+                                contentDescription = stringResource(R.string.nav_favorites),
                                 tint = if (activeTab == "watchlist") RetroGold else Color.White,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -623,6 +675,44 @@ fun RetroBottomNavBar(
             )
 
             NavigationBarItem(
+                selected = activeTab == "live",
+                onClick = { onTabSelected("live") },
+                icon = {
+                    BadgedBox(
+                        badge = {
+                            Badge(
+                                containerColor = RetroRuby,
+                                modifier = Modifier.size(8.dp)
+                            )
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.LiveTv,
+                            contentDescription = stringResource(R.string.nav_live_tv),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                },
+                label = {
+                    Text(
+                        text = stringResource(R.string.nav_live_tv),
+                        fontSize = 11.sp,
+                        fontWeight = if (activeTab == "live") FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = CinemaBlack,
+                    selectedTextColor = RetroGold,
+                    indicatorColor = RetroGold,
+                    unselectedIconColor = Color.White.copy(alpha = 0.65f),
+                    unselectedTextColor = Color.White.copy(alpha = 0.65f)
+                ),
+                modifier = Modifier.testTag("nav_live_tab")
+            )
+
+            NavigationBarItem(
                 selected = activeTab == "search",
                 onClick = { onTabSelected("search") },
                 icon = {
@@ -671,22 +761,22 @@ fun RetroBottomNavBar(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Bookmark,
-                                contentDescription = stringResource(R.string.nav_watchlist),
+                                imageVector = Icons.Default.Favorite,
+                                contentDescription = stringResource(R.string.nav_favorites),
                                 modifier = Modifier.size(22.dp)
                             )
                         }
                     } else {
                         Icon(
-                            imageVector = Icons.Default.Bookmark,
-                            contentDescription = stringResource(R.string.nav_watchlist),
+                            imageVector = Icons.Default.FavoriteBorder,
+                            contentDescription = stringResource(R.string.nav_favorites),
                             modifier = Modifier.size(22.dp)
                         )
                     }
                 },
                 label = {
                     Text(
-                        text = stringResource(R.string.nav_watchlist),
+                        text = stringResource(R.string.nav_favorites),
                         fontSize = 11.sp,
                         fontWeight = if (activeTab == "watchlist") FontWeight.Bold else FontWeight.Medium,
                         maxLines = 1,
@@ -712,7 +802,8 @@ fun NavPillButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
-    tag: String
+    tag: String,
+    isLiveBadge: Boolean = false
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val bgColor by animateColorAsState(if (selected) RetroGold else CinemaSurfaceVariant, label = "pill_bg")
@@ -733,13 +824,23 @@ fun NavPillButton(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                modifier = Modifier.size(16.dp),
-                tint = if (selected) CinemaBlack else RetroGold
-            )
-            Spacer(modifier = Modifier.width(6.dp))
+            if (isLiveBadge && !selected) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(RetroRuby)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    modifier = Modifier.size(16.dp),
+                    tint = if (selected) CinemaBlack else RetroGold
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
             Text(
                 text = title,
                 fontSize = 12.sp,
@@ -764,6 +865,12 @@ fun HomeCatalogView(
     isWideScreen: Boolean,
     onCategoryFilterSelected: (String) -> Unit,
     onPlay: (CartoonItem) -> Unit,
+    onTuneLiveChannel: (LiveTvChannel) -> Unit = {},
+    onOpenLiveGuide: () -> Unit = {},
+    onOpenSeries: (CartoonSeries) -> Unit = {},
+    onPlaySeriesMarathon: (CartoonSeries) -> Unit = {},
+    onToggleFavoriteSeries: (CartoonSeries) -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
     onSelectDetail: (CartoonItem) -> Unit,
     onToggleWatchlist: (CartoonItem) -> Unit,
     onSetHero: (CartoonItem) -> Unit,
@@ -776,6 +883,7 @@ fun HomeCatalogView(
     val categories = remember {
         listOf(
             CategoryFilterItem("ALL", R.string.category_all, Icons.Default.Movie),
+            CategoryFilterItem("SLAPSTICK", R.string.category_slapstick_scifi, Icons.Default.AutoAwesome),
             CategoryFilterItem("CARTOONS", R.string.category_cartoons, Icons.Default.Tv),
             CategoryFilterItem("SERIALS", R.string.category_serials, Icons.Default.VideoLibrary),
             CategoryFilterItem("VINTAGE", R.string.category_vintage, Icons.Default.History),
@@ -785,8 +893,8 @@ fun HomeCatalogView(
         )
     }
 
-    val vintageList = remember(uiState.featuredList, uiState.supermanList, uiState.popeyeList, uiState.bettyList, uiState.serialsList) {
-        (uiState.featuredList + uiState.supermanList + uiState.popeyeList + uiState.bettyList + uiState.serialsList)
+    val vintageList = remember(uiState.featuredList, uiState.supermanList, uiState.classicsSciFiList, uiState.popeyeList, uiState.bettyList, uiState.serialsList) {
+        (uiState.featuredList + uiState.supermanList + uiState.classicsSciFiList + uiState.popeyeList + uiState.bettyList + uiState.serialsList)
             .distinctBy { it.id }
             .filter { item ->
                 val yearNum = item.year.filter { it.isDigit() }.toIntOrNull() ?: 1950
@@ -794,13 +902,14 @@ fun HomeCatalogView(
             }
     }
 
-    val cartoonsList = remember(uiState.supermanList, uiState.popeyeList, uiState.bettyList) {
-        (uiState.supermanList + uiState.popeyeList + uiState.bettyList).distinctBy { it.id }
+    val cartoonsList = remember(uiState.supermanList, uiState.classicsSciFiList, uiState.popeyeList, uiState.bettyList) {
+        (uiState.supermanList + uiState.classicsSciFiList + uiState.popeyeList + uiState.bettyList).distinctBy { it.id }
     }
 
     fun getCategoryCount(key: String): Int {
         return when (key) {
-            "ALL" -> (uiState.featuredList + uiState.supermanList + uiState.popeyeList + uiState.bettyList + uiState.serialsList).distinctBy { it.id }.size
+            "ALL" -> (uiState.featuredList + uiState.supermanList + uiState.classicsSciFiList + uiState.popeyeList + uiState.bettyList + uiState.serialsList).distinctBy { it.id }.size
+            "SLAPSTICK" -> uiState.classicsSciFiList.size
             "CARTOONS" -> cartoonsList.size
             "SERIALS" -> uiState.serialsList.size
             "VINTAGE" -> vintageList.size
@@ -1020,6 +1129,23 @@ fun HomeCatalogView(
             }
         }
 
+        // Section: My Favorite Cartoon Series quick-access row (Room-backed)
+        if (uiState.favoriteSeries.isNotEmpty()) {
+            item {
+                SeriesCarouselRow(
+                    title = stringResource(R.string.my_favorite_series_home_title),
+                    seriesList = uiState.favoriteSeries,
+                    isWideScreen = isWideScreen,
+                    onOpenSeries = onOpenSeries,
+                    onPlaySeriesMarathon = onPlaySeriesMarathon,
+                    onToggleFavoriteSeries = onToggleFavoriteSeries,
+                    actionLabel = stringResource(R.string.my_favorites_title),
+                    onActionClick = onOpenFavorites,
+                    sectionTestTag = "home_favorite_series_row"
+                )
+            }
+        }
+
         // Section: My List (Watchlist) row on Home Screen (from Room Watchlist table)
         if (uiState.watchlistItems.isNotEmpty()) {
             item {
@@ -1034,12 +1160,146 @@ fun HomeCatalogView(
             }
         }
 
+        // Section: Classic Cartoon Series (Browse & Heart any series to save locally via Room)
+        if (uiState.categoryFilter == "ALL" && uiState.allSeries.isNotEmpty()) {
+            item {
+                SeriesCarouselRow(
+                    title = stringResource(R.string.classic_series_section_title),
+                    seriesList = uiState.allSeries,
+                    isWideScreen = isWideScreen,
+                    onOpenSeries = onOpenSeries,
+                    onPlaySeriesMarathon = onPlaySeriesMarathon,
+                    onToggleFavoriteSeries = onToggleFavoriteSeries,
+                    sectionTestTag = "home_classic_series_row"
+                )
+            }
+        }
+
+        // Quick 24/7 Live TV Strip on Home Screen (shown on ALL)
+        if (uiState.categoryFilter == "ALL" && uiState.liveChannels.isNotEmpty()) {
+            item {
+                var liveStripFocused by remember { mutableStateOf(false) }
+                Surface(
+                    color = CinemaDark,
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (liveStripFocused) 2.dp else 1.dp,
+                        color = if (liveStripFocused) RetroGold else RetroRuby.copy(alpha = 0.55f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = if (isWideScreen) 28.dp else 16.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .onFocusChanged { liveStripFocused = it.isFocused }
+                        .clickable { onOpenLiveGuide() }
+                        .testTag("home_live_tv_banner")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        RetroRuby.copy(alpha = 0.22f),
+                                        CinemaDark,
+                                        RetroGold.copy(alpha = 0.12f)
+                                    )
+                                )
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                color = RetroRuby,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LiveTv,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = stringResource(R.string.live_badge),
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.home_live_banner_title),
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = stringResource(R.string.home_live_banner_subtitle, uiState.liveChannels.size),
+                                    color = RetroCream.copy(alpha = 0.72f),
+                                    fontSize = 11.5.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Surface(
+                            color = RetroGold,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onTuneLiveChannel(uiState.liveChannels.first()) }
+                                .testTag("home_live_tune_ch1_button")
+                        ) {
+                            Text(
+                                text = stringResource(R.string.live_tune_in_now),
+                                color = CinemaBlack,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Section: Popular Classics (shown on ALL)
         if (uiState.categoryFilter == "ALL" && uiState.featuredList.isNotEmpty()) {
             item {
                 CartoonCarouselRow(
                     title = "🔥 ${stringResource(R.string.popular_cartoons)}",
                     items = uiState.featuredList,
+                    isWideScreen = isWideScreen,
+                    onPlay = onPlay,
+                    onSelectDetail = onSelectDetail,
+                    onToggleWatchlist = onToggleWatchlist
+                )
+            }
+        }
+
+        // Section: Golden-Age Slapstick, Stone Age & Retro Sci-Fi (shown on ALL, CARTOONS, SLAPSTICK)
+        if ((uiState.categoryFilter == "ALL" || uiState.categoryFilter == "CARTOONS" || uiState.categoryFilter == "SLAPSTICK") && uiState.classicsSciFiList.isNotEmpty()) {
+            item {
+                CartoonCarouselRow(
+                    title = stringResource(R.string.row_slapstick_scifi_title),
+                    items = uiState.classicsSciFiList,
                     isWideScreen = isWideScreen,
                     onPlay = onPlay,
                     onSelectDetail = onSelectDetail,
@@ -1760,7 +2020,7 @@ fun CartoonPosterCard(
                     )
                 }
 
-                // 10-second preview badge when focused, or Resume badge when watch progress exists
+                // Focus action badge when focused, or Resume badge when watch progress exists
                 if (isFocused) {
                     Surface(
                         color = RetroGold,
@@ -1771,7 +2031,7 @@ fun CartoonPosterCard(
                             .testTag("preview_badge_${cartoon.id}")
                     ) {
                         Text(
-                            text = stringResource(R.string.trailer_preview_badge),
+                            text = stringResource(R.string.watch_now_badge),
                             color = CinemaBlack,
                             fontSize = 8.5.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -1938,6 +2198,7 @@ fun CartoonPosterCard(
 fun SearchView(
     searchQuery: String,
     searchResults: List<CartoonItem>,
+    searchFallbackSuggestion: PublicDomainSuggestion? = null,
     isSearching: Boolean,
     isWideScreen: Boolean,
     onQueryChange: (String) -> Unit,
@@ -1946,7 +2207,18 @@ fun SearchView(
     onToggleWatchlist: (CartoonItem) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val quickPills = listOf("Superman", "Popeye", "Betty Boop", "Felix the Cat", "Buster Keaton", "Casper", "Little Audrey")
+    val quickPills = listOf(
+        "Superman",
+        "Popeye",
+        "Looney Tunes",
+        "Betty Boop",
+        "Casper",
+        "Herman and Katnip",
+        "Stone Age",
+        "Colonel Bleep",
+        "Felix the Cat",
+        "Three Stooges"
+    )
     val firstPillFocusRequester = remember { FocusRequester() }
     val tvTextFieldFocusRequester = remember { FocusRequester() }
     var isTvKeyboardActive by remember { mutableStateOf(false) }
@@ -2167,6 +2439,68 @@ fun SearchView(
 
         Spacer(modifier = Modifier.height(18.dp))
 
+        // Smart Public Domain Vault Notice when user searches for copyrighted studio franchises
+        if (searchFallbackSuggestion != null) {
+            Surface(
+                color = CinemaDark,
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, RetroGold.copy(alpha = 0.5f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 14.dp)
+                    .testTag("search_public_domain_notice")
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = null,
+                            tint = RetroGold,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.search_pd_vault_title),
+                            color = RetroGold,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.search_pd_vault_body, searchFallbackSuggestion.matchedFranchiseLabel),
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(searchFallbackSuggestion.recommendedQueries) { recQuery ->
+                            var recFocused by remember { mutableStateOf(false) }
+                            Surface(
+                                color = if (recFocused) RetroGold else RetroGold.copy(alpha = 0.16f),
+                                shape = RoundedCornerShape(16.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, RetroGold),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .onFocusChanged { recFocused = it.isFocused }
+                                    .clickable { onQueryChange(recQuery) }
+                                    .testTag("search_pd_rec_${recQuery.lowercase().replace(" ", "_")}")
+                            ) {
+                                Text(
+                                    text = recQuery,
+                                    color = if (recFocused) CinemaBlack else RetroGold,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Search Results State
         if (isSearching) {
             Box(
@@ -2186,16 +2520,23 @@ fun SearchView(
                 }
             }
         } else if (searchResults.isEmpty() && searchQuery.isNotEmpty()) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
-                contentAlignment = Alignment.Center
+                    .padding(vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = stringResource(R.string.no_cartoons_found, searchQuery),
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 14.sp
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.search_empty_pd_hint),
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 12.sp
                 )
             }
         } else if (searchResults.isEmpty()) {
@@ -2257,98 +2598,88 @@ fun SearchView(
 }
 
 @Composable
-fun WatchlistView(
-    items: List<CartoonItem>,
+private fun SeriesCarouselRow(
+    title: String,
+    seriesList: List<CartoonSeries>,
     isWideScreen: Boolean,
-    onPlay: (CartoonItem) -> Unit,
-    onSelectDetail: (CartoonItem) -> Unit,
-    onToggleWatchlist: (CartoonItem) -> Unit,
-    onExploreClick: () -> Unit
+    onOpenSeries: (CartoonSeries) -> Unit,
+    onPlaySeriesMarathon: (CartoonSeries) -> Unit,
+    onToggleFavoriteSeries: (CartoonSeries) -> Unit,
+    actionLabel: String? = null,
+    onActionClick: (() -> Unit)? = null,
+    sectionTestTag: String
 ) {
-    if (items.isEmpty()) {
-        Column(
+    val horizontalPad = if (isWideScreen) 28.dp else 20.dp
+    val cardWidth = if (isWideScreen) 270.dp else 224.dp
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 20.dp)
+            .testTag(sectionTestTag)
+    ) {
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.BookmarkBorder,
-                contentDescription = null,
-                tint = RetroGold,
-                modifier = Modifier.size(64.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.empty_watchlist_title),
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.empty_watchlist_subtitle),
-                color = Color.White.copy(alpha = 0.65f),
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            var browseFocused by remember { mutableStateOf(false) }
-            val browseFocusRequester = remember { FocusRequester() }
-            LaunchedEffect(isWideScreen) {
-                if (isWideScreen) {
-                    delay(200)
-                    try {
-                        browseFocusRequester.requestFocus()
-                    } catch (_: Exception) {}
-                }
-            }
-            Button(
-                onClick = onExploreClick,
-                colors = ButtonDefaults.buttonColors(containerColor = RetroGold, contentColor = CinemaBlack),
-                border = if (browseFocused) androidx.compose.foundation.BorderStroke(2.5.dp, Color.White) else null,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .height(48.dp)
-                    .focusRequester(browseFocusRequester)
-                    .onFocusChanged { browseFocused = it.isFocused }
-            ) {
-                Text(stringResource(R.string.browse_cartoons), fontWeight = FontWeight.Bold)
-            }
-        }
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(if (isWideScreen) 28.dp else 20.dp)
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPad),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = stringResource(R.string.my_saved_cartoons, items.size),
+                text = title,
                 color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = if (isWideScreen) 18.sp else 16.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = if (isWideScreen) 220.dp else 150.dp),
-                contentPadding = PaddingValues(bottom = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(items, key = { it.id }) { item ->
-                    CartoonPosterCard(
-                        cartoon = item,
-                        isWideScreen = isWideScreen,
-                        onClick = { onSelectDetail(item) },
-                        onPlay = { onPlay(item) },
-                        onToggleWatchlist = { onToggleWatchlist(item) },
-                        modifier = Modifier.fillMaxWidth()
+            if (actionLabel != null && onActionClick != null) {
+                var seeAllFocused by remember { mutableStateOf(false) }
+                TextButton(
+                    onClick = onActionClick,
+                    colors = ButtonDefaults.textButtonColors(contentColor = RetroGold),
+                    border = if (seeAllFocused) androidx.compose.foundation.BorderStroke(1.5.dp, RetroGold) else null,
+                    modifier = Modifier
+                        .onFocusChanged { seeAllFocused = it.isFocused }
+                        .testTag("${sectionTestTag}_see_all")
+                ) {
+                    Text(
+                        text = actionLabel,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
+            } else {
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = stringResource(R.string.series_count_label, seriesList.size),
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = horizontalPad),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            items(seriesList, key = { "${sectionTestTag}_${it.id}" }) { series ->
+                CartoonSeriesCard(
+                    series = series,
+                    isWideScreen = isWideScreen,
+                    onOpenSeries = { onOpenSeries(series) },
+                    onPlayMarathon = { onPlaySeriesMarathon(series) },
+                    onToggleFavorite = { onToggleFavoriteSeries(series) },
+                    modifier = Modifier.width(cardWidth)
+                )
             }
         }
     }
 }
+

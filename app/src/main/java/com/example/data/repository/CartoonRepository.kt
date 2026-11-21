@@ -16,19 +16,27 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
+import com.example.data.local.FavoriteSeriesDao
+import com.example.data.local.FavoriteSeriesEntity
 import com.example.data.local.WatchlistDao
 import com.example.data.local.WatchlistEntity
+import com.example.data.model.CartoonSeries
+import kotlinx.coroutines.flow.map
 
 class CartoonRepository(
     context: Context,
     private val apiClient: ArchiveApiClient = ArchiveApiClient(),
     private val recentlyWatchedDao: RecentlyWatchedDao = RetroToonDatabase.getInstance(context).recentlyWatchedDao(),
-    private val watchlistDao: WatchlistDao = RetroToonDatabase.getInstance(context).watchlistDao()
+    private val watchlistDao: WatchlistDao = RetroToonDatabase.getInstance(context).watchlistDao(),
+    private val favoriteSeriesDao: FavoriteSeriesDao = RetroToonDatabase.getInstance(context).favoriteSeriesDao()
 ) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("retrotoon_prefs", Context.MODE_PRIVATE)
@@ -69,8 +77,21 @@ class CartoonRepository(
             }
         }
 
+    // Reactive Favorite Cartoon Series flows directly from local Room database
+    val favoriteSeries: Flow<List<CartoonSeries>> = favoriteSeriesDao
+        .getAllFavoriteSeries()
+        .map { entities -> entities.map { it.toCartoonSeries() } }
+
+    val favoriteSeriesIds: Flow<Set<String>> = favoriteSeriesDao
+        .getAllFavoriteSeriesIds()
+        .map { it.toSet() }
+
     // Resolved stream URL cache (id -> direct mp4 url)
     private val streamUrlCache = ConcurrentHashMap<String, String>()
+
+    // Guards optimistic watchlist toggles against stale in-flight Room Flow emissions
+    private val watchlistMutex = Mutex()
+    private val pendingWatchlistWrites = AtomicInteger(0)
 
     init {
         loadPreferences()
@@ -79,9 +100,36 @@ class CartoonRepository(
 
     private fun syncWatchlistFromRoom() {
         repositoryScope.launch {
+            var didInitialSync = false
             watchlistDao.getAllWatchlistIds().collect { roomIds ->
-                if (roomIds.isNotEmpty()) {
-                    _watchlist.value = roomIds.toSet()
+                val roomSet = roomIds.toSet()
+                if (!didInitialSync) {
+                    didInitialSync = true
+                    if (roomSet.isEmpty() && _watchlist.value.isNotEmpty() &&
+                        pendingWatchlistWrites.get() == 0 &&
+                        !prefs.getBoolean("watchlist_migrated_to_room", false)
+                    ) {
+                        // One-time migration from legacy SharedPreferences favorites into Room
+                        val curatedLookup = (getCuratedFeatured() + getCuratedSuperman() + getCuratedPopeye() +
+                            getCuratedBettyBoop() + getCuratedClassicsAndSciFi() + getCuratedSerials())
+                            .associateBy { it.id }
+                        watchlistMutex.withLock {
+                            _watchlist.value.forEach { legacyId ->
+                                curatedLookup[legacyId]?.let { item ->
+                                    try {
+                                        watchlistDao.insertToWatchlist(WatchlistEntity.fromCartoonItem(item))
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        }
+                        prefs.edit().putBoolean("watchlist_migrated_to_room", true).apply()
+                        return@collect
+                    }
+                    prefs.edit().putBoolean("watchlist_migrated_to_room", true).apply()
+                }
+                if (pendingWatchlistWrites.get() == 0) {
+                    _watchlist.value = roomSet
+                    prefs.edit().putStringSet("favorites_set", roomSet).apply()
                 }
             }
         }
@@ -141,18 +189,64 @@ class CartoonRepository(
         } else {
             current.add(item.id)
         }
+        pendingWatchlistWrites.incrementAndGet()
         _watchlist.value = current
         prefs.edit().putStringSet("favorites_set", current).apply()
 
         repositoryScope.launch {
             try {
-                if (willRemove) {
-                    watchlistDao.removeFromWatchlist(item.id)
-                } else {
-                    watchlistDao.insertToWatchlist(WatchlistEntity.fromCartoonItem(item))
+                watchlistMutex.withLock {
+                    if (willRemove) {
+                        watchlistDao.removeFromWatchlist(item.id)
+                    } else {
+                        watchlistDao.insertToWatchlist(WatchlistEntity.fromCartoonItem(item))
+                    }
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            } finally {
+                pendingWatchlistWrites.decrementAndGet()
+            }
         }
+    }
+
+    suspend fun clearWatchlist() {
+        pendingWatchlistWrites.incrementAndGet()
+        _watchlist.value = emptySet()
+        prefs.edit().putStringSet("favorites_set", emptySet()).apply()
+        try {
+            watchlistMutex.withLock {
+                watchlistDao.clearWatchlist()
+            }
+        } finally {
+            pendingWatchlistWrites.decrementAndGet()
+        }
+    }
+
+    /**
+     * Toggles a CartoonSeries in the local Room `favorite_series` table.
+     * @return true if the series was added to favorites, false if removed.
+     */
+    suspend fun toggleFavoriteSeries(series: CartoonSeries): Boolean {
+        val existing = favoriteSeriesDao.getFavoriteSeriesById(series.id)
+        return if (existing != null) {
+            favoriteSeriesDao.deleteFavoriteSeries(series.id)
+            false
+        } else {
+            favoriteSeriesDao.insertFavoriteSeries(FavoriteSeriesEntity.fromCartoonSeries(series))
+            true
+        }
+    }
+
+    suspend fun saveFavoriteSeries(series: CartoonSeries) {
+        favoriteSeriesDao.insertFavoriteSeries(FavoriteSeriesEntity.fromCartoonSeries(series))
+    }
+
+    suspend fun removeFavoriteSeries(seriesId: String) {
+        favoriteSeriesDao.deleteFavoriteSeries(seriesId)
+    }
+
+    suspend fun clearFavoriteSeries() {
+        favoriteSeriesDao.clearAllFavoriteSeries()
     }
 
     fun saveWatchProgress(itemId: String, positionMs: Long, durationMs: Long = 0L) {
@@ -250,6 +344,9 @@ class CartoonRepository(
         }
         if (candidates.isNotEmpty()) {
             streamUrlCache[item.id] = candidates.first()
+            if (streamUrlCache.size > 60) {
+                streamUrlCache.keys.take(streamUrlCache.size - 60).forEach { streamUrlCache.remove(it) }
+            }
             try {
                 val cacheObj = JSONObject()
                 streamUrlCache.forEach { (k, v) -> cacheObj.put(k, v) }
@@ -405,16 +502,6 @@ class CartoonRepository(
             mp4Filename = "superman_the_mechanical_monsters_512kb.mp4"
         ),
         CartoonItem(
-            id = "superman_eleventh_hour",
-            title = "Superman: Eleventh Hour",
-            year = "1942",
-            category = "Superman",
-            creator = "Fleischer Studios",
-            description = "Clark Kent escapes a POW camp to execute precision sabotage across harbor shipyards, dodging torpedo nets and sirens.",
-            runtime = "8:57",
-            mp4Filename = "superman_eleventh_hour_512kb.mp4"
-        ),
-        CartoonItem(
             id = "superman_1941",
             title = "Superman: The Mad Scientist",
             year = "1941",
@@ -423,6 +510,155 @@ class CartoonRepository(
             description = "The Academy Award-nominated debut. A mad scientist threatens to melt the city with his electro-magnetic death beam.",
             runtime = "10:27",
             mp4Filename = "superman_1941_512kb.mp4"
+        ),
+        CartoonItem(
+            id = "superman_billion_dollar_limited",
+            title = "Superman: Billion Dollar Limited",
+            year = "1942",
+            category = "Superman",
+            creator = "Fleischer Studios",
+            description = "Armored bandits hijack a high-speed gold bullion express train with Lois Lane aboard, forcing Superman into a breathtaking locomotive rescue.",
+            runtime = "8:38"
+        ),
+        CartoonItem(
+            id = "superman_the_arctic_giant",
+            title = "Superman: The Arctic Giant",
+            year = "1942",
+            category = "Superman",
+            creator = "Fleischer Studios",
+            description = "A prehistoric dinosaur frozen in Siberian ice thaws inside Metropolis Museum and rampages downtown until Superman intervenes.",
+            runtime = "8:45"
+        ),
+        CartoonItem(
+            id = "superman_the_bulleteers",
+            title = "Superman: The Bulleteers",
+            year = "1942",
+            category = "Superman",
+            creator = "Fleischer Studios",
+            description = "Masked criminals pilot a jet-powered bullet car through city skyscrapers, challenging Superman to stop the armored rocket mid-flight.",
+            runtime = "8:05"
+        ),
+        CartoonItem(
+            id = "superman_magnetic_telescope",
+            title = "Superman: The Magnetic Telescope",
+            year = "1942",
+            category = "Superman",
+            creator = "Fleischer Studios",
+            description = "A rogue astronomer's giant magnetic beam pulls a blazing comet straight toward Metropolis, sparking an apocalyptic race against time.",
+            runtime = "7:40"
+        ),
+        CartoonItem(
+            id = "superman_electric_earthquake",
+            title = "Superman: Electric Earthquake",
+            year = "1942",
+            category = "Superman",
+            creator = "Fleischer Studios",
+            description = "Undersea seismic generators threaten to sink Manhattan beneath the waves unless Superman destroys the subterranean power cables.",
+            runtime = "8:40"
+        ),
+        CartoonItem(
+            id = "superman_eleventh_hour",
+            title = "Superman: Eleventh Hour",
+            year = "1942",
+            category = "Superman",
+            creator = "Fleischer Studios",
+            description = "Clark Kent escapes a POW camp to execute precision sabotage across harbor shipyards, dodging torpedo nets and sirens.",
+            runtime = "8:57",
+            mp4Filename = "superman_eleventh_hour_512kb.mp4"
+        )
+    )
+
+    fun getCuratedClassicsAndSciFi(): List<CartoonItem> = listOf(
+        CartoonItem(
+            id = "a_tale_of_two_kitties",
+            title = "A Tale of Two Kitties (1942)",
+            year = "1942",
+            category = "Slapstick & Sci-Fi",
+            creator = "Leon Schlesinger / Merrie Melodies",
+            description = "Two scheming alley cats, Babbit and Catstello, try every slapstick trick in the book to catch a clever little bird in this classic golden-age chase.",
+            runtime = "6:45",
+            downloads = 310000L
+        ),
+        CartoonItem(
+            id = "falling_hare",
+            title = "Falling Hare (1943)",
+            year = "1943",
+            category = "Slapstick & Sci-Fi",
+            creator = "Leon Schlesinger / Merrie Melodies",
+            description = "A mischievous aviation gremlin sabotages a bomber mid-flight, triggering dizzying high-altitude cartoon chaos.",
+            runtime = "8:25",
+            downloads = 285000L
+        ),
+        CartoonItem(
+            id = "wackiki_wabbit",
+            title = "Wackiki Wabbit (1943)",
+            year = "1943",
+            category = "Slapstick & Sci-Fi",
+            creator = "Leon Schlesinger / Merrie Melodies",
+            description = "Two shipwrecked castaways on a tropical island try to turn a witty rabbit into dinner, only to be outsmarted at every turn.",
+            runtime = "6:54",
+            downloads = 260000L
+        ),
+        CartoonItem(
+            id = "yankee_doodle_daffy",
+            title = "Yankee Doodle Daffy (1943)",
+            year = "1943",
+            category = "Slapstick & Sci-Fi",
+            creator = "Leon Schlesinger / Looney Tunes",
+            description = "A fast-talking talent agent goes to outrageous musical and acrobatic lengths to pitch his star client before a big producer leaves town.",
+            runtime = "6:48",
+            downloads = 240000L
+        ),
+        CartoonItem(
+            id = "casper_the_friendly_ghost_1945",
+            title = "Casper: The Friendly Ghost",
+            year = "1945",
+            category = "Slapstick & Sci-Fi",
+            creator = "Famous Studios",
+            description = "The heartwarming debut of Casper, a gentle young ghost who would much rather make friends than haunt houses.",
+            runtime = "7:50",
+            downloads = 290000L
+        ),
+        CartoonItem(
+            id = "herman_and_katnip_mice_meeting_you",
+            title = "Herman & Katnip: Mice Meeting You",
+            year = "1950",
+            category = "Slapstick & Sci-Fi",
+            creator = "Famous Studios",
+            description = "Classic cat-and-mouse slapstick mayhem! Streetwise mouse Herman defends his pantry pals from Katnip's elaborate traps.",
+            runtime = "6:42",
+            downloads = 185000L
+        ),
+        CartoonItem(
+            id = "woody_woodpecker_pantry_panic",
+            title = "Woody Woodpecker: Pantry Panic",
+            year = "1941",
+            category = "Slapstick & Sci-Fi",
+            creator = "Walter Lantz Productions",
+            description = "Snowed in for winter with an empty larder, Woody Woodpecker and a hungry alley cat engage in manic slapstick hijinks.",
+            runtime = "6:52",
+            downloads = 195000L,
+            mp4Filename = "woody_woodpecker_pantry_panic_512kb.mp4"
+        ),
+        CartoonItem(
+            id = "granite_hotel",
+            title = "Stone Age Cartoons: Granite Hotel",
+            year = "1940",
+            category = "Slapstick & Sci-Fi",
+            creator = "Fleischer Studios",
+            description = "Twenty years before TV's prehistoric sitcoms, Fleischer Studios imagined dinosaurs as bellhops, woolly mammoths as showers, and rocky hotel comedy!",
+            runtime = "6:38",
+            downloads = 162000L
+        ),
+        CartoonItem(
+            id = "colonel_bleep_1",
+            title = "Colonel Bleep: Retro Space Adventures",
+            year = "1957",
+            category = "Slapstick & Sci-Fi",
+            creator = "Soundac Productions",
+            description = "The first color cartoon made for television! Futurist extraterrestrial Colonel Bleep and his sidekicks Scratch and Squeak patrol Zero Zero Island in space.",
+            runtime = "5:30",
+            downloads = 148000L
         )
     )
 

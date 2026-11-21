@@ -367,4 +367,220 @@ class ExampleRobolectricTest {
       org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
     }
   }
+
+  @Test
+  fun `verify 24_7 LiveTvChannelEngine deterministic schedule and channel lineup`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repo = CartoonRepository(context)
+    val channels = com.example.data.live.LiveTvChannelEngine.buildChannels(
+      featured = repo.getCuratedFeatured(),
+      superman = repo.getCuratedSuperman(),
+      popeye = repo.getCuratedPopeye(),
+      betty = repo.getCuratedBettyBoop(),
+      classicsAndSciFi = repo.getCuratedClassicsAndSciFi(),
+      serials = repo.getCuratedSerials()
+    )
+    assertEquals(4, channels.size)
+    assertTrue(repo.getCuratedSuperman().size >= 8)
+    assertTrue(repo.getCuratedClassicsAndSciFi().size >= 9)
+
+    val fixedNow = 1_760_000_000_000L
+    val programA = com.example.data.live.LiveTvChannelEngine.getCurrentProgram(channels.first(), fixedNow)
+    val programB = com.example.data.live.LiveTvChannelEngine.getCurrentProgram(channels.first(), fixedNow)
+    assertNotNull(programA)
+    assertEquals(programA?.currentItem?.id, programB?.currentItem?.id)
+    assertEquals(programA?.offsetMs, programB?.offsetMs)
+    assertTrue((programA?.durationMs ?: 0L) > 0L)
+
+    val nextItem = com.example.data.live.LiveTvChannelEngine.getNextItemInChannel(
+      channels.first(),
+      programA!!.currentItem.id
+    )
+    assertNotNull(nextItem)
+    assertEquals(programA.upNextItem.id, nextItem?.id)
+  }
+
+  @Test
+  fun `verify Public Domain fallback suggestions trigger for copyrighted franchise queries`() {
+    val tomJerry = com.example.data.live.LiveTvChannelEngine.detectCopyrightedFranchiseQuery("Tom and Jerry")
+    assertNotNull(tomJerry)
+    assertTrue(tomJerry!!.recommendedQueries.contains("Herman and Katnip"))
+
+    val flintstones = com.example.data.live.LiveTvChannelEngine.detectCopyrightedFranchiseQuery("fling stone")
+    assertNotNull(flintstones)
+    assertTrue(flintstones!!.recommendedQueries.contains("Stone Age"))
+
+    val jetsons = com.example.data.live.LiveTvChannelEngine.detectCopyrightedFranchiseQuery("jetson")
+    assertNotNull(jetsons)
+    assertTrue(jetsons!!.recommendedQueries.contains("Colonel Bleep"))
+
+    val batman = com.example.data.live.LiveTvChannelEngine.detectCopyrightedFranchiseQuery("bat man and Robbin")
+    assertNotNull(batman)
+    assertTrue(batman!!.recommendedQueries.contains("Superman"))
+
+    assertNull(com.example.data.live.LiveTvChannelEngine.detectCopyrightedFranchiseQuery("Popeye"))
+  }
+
+  @Test
+  fun `verify LiveTvGuideScreen composes cleanly`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repo = CartoonRepository(context)
+    val channels = com.example.data.live.LiveTvChannelEngine.buildChannels(
+      featured = repo.getCuratedFeatured(),
+      superman = repo.getCuratedSuperman(),
+      popeye = repo.getCuratedPopeye(),
+      betty = repo.getCuratedBettyBoop(),
+      classicsAndSciFi = repo.getCuratedClassicsAndSciFi(),
+      serials = repo.getCuratedSerials()
+    )
+    val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+    val activity = controller.get()
+    activity.setContent {
+      RetroToonTheme {
+        com.example.ui.live.LiveTvGuideScreen(
+          channels = channels,
+          isWideScreen = true,
+          onTuneChannel = {}
+        )
+      }
+    }
+    assertNotNull(activity.window.decorView)
+  }
+
+  @Test
+  fun `verify Room FavoriteSeriesDao and CartoonRepository save observe and remove favorite cartoon series`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repository = CartoonRepository(context)
+    val allSeries = com.example.data.model.CartoonSeriesCatalog.buildAllSeries(
+      supermanList = repository.getCuratedSuperman(),
+      popeyeList = repository.getCuratedPopeye(),
+      bettyList = repository.getCuratedBettyBoop(),
+      classicsSciFiList = repository.getCuratedClassicsAndSciFi(),
+      serialsList = repository.getCuratedSerials()
+    )
+    assertTrue(allSeries.size >= 8)
+
+    val supermanSeries = allSeries.first { it.id == "series_superman" }
+    repository.clearFavoriteSeries()
+    assertTrue(repository.favoriteSeries.first().isEmpty())
+
+    // Save favorite series to local Room database
+    val saved = repository.toggleFavoriteSeries(supermanSeries)
+    assertTrue(saved)
+    val favoritesAfterSave = repository.favoriteSeries.first()
+    assertEquals(1, favoritesAfterSave.size)
+    assertEquals("series_superman", favoritesAfterSave.first().id)
+    assertTrue(favoritesAfterSave.first().isFavorite)
+
+    // Toggle again to remove from local Room database
+    val stillSaved = repository.toggleFavoriteSeries(supermanSeries)
+    assertFalse(stillSaved)
+    val favoritesAfterRemove = repository.favoriteSeries.first()
+    assertTrue(favoritesAfterRemove.isEmpty())
+  }
+
+  @Test
+  fun `verify Room watchlist removes last item cleanly without stale repopulation`() = runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repository = CartoonRepository(context)
+    repository.clearWatchlist()
+    val item = repository.getCuratedFeatured().first()
+
+    repository.toggleWatchlist(item)
+    assertTrue(repository.watchlist.value.contains(item.id))
+
+    val db = com.example.data.local.RetroToonDatabase.getInstance(context)
+    kotlinx.coroutines.withTimeout(3000L) {
+      db.watchlistDao().getAllWatchlistIds().first { it.contains(item.id) }
+    }
+
+    repository.toggleWatchlist(item)
+    assertFalse(repository.watchlist.value.contains(item.id))
+
+    // Confirm Room table is truly empty after removing the last item
+    val roomIds = kotlinx.coroutines.withTimeout(3000L) {
+      db.watchlistDao().getAllWatchlistIds().first { it.none { id -> id == item.id } }
+    }
+    assertTrue(roomIds.none { it == item.id })
+  }
+
+  @Test
+  fun `verify CartoonSeriesCatalog resolves parent series and filters episodes`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repo = CartoonRepository(context)
+    val superman = repo.getCuratedSuperman()
+    val popeye = repo.getCuratedPopeye()
+    val betty = repo.getCuratedBettyBoop()
+    val sciFi = repo.getCuratedClassicsAndSciFi()
+    val serials = repo.getCuratedSerials()
+    val allItems = (repo.getCuratedFeatured() + superman + popeye + betty + sciFi + serials).distinctBy { it.id }
+
+    val allSeries = com.example.data.model.CartoonSeriesCatalog.buildAllSeries(
+      supermanList = superman,
+      popeyeList = popeye,
+      bettyList = betty,
+      classicsSciFiList = sciFi,
+      serialsList = serials,
+      favoriteSeriesIds = setOf("series_popeye")
+    )
+    val popeyeSeries = allSeries.first { it.id == "series_popeye" }
+    assertTrue(popeyeSeries.isFavorite)
+
+    val popeyeEpisodes = com.example.data.model.CartoonSeriesCatalog.filterEpisodesForSeries(popeyeSeries.id, allItems)
+    assertTrue(popeyeEpisodes.isNotEmpty())
+
+    val resolved = com.example.data.model.CartoonSeriesCatalog.resolveSeriesForItem(
+      superman.first(),
+      allSeries
+    )
+    assertEquals("series_superman", resolved?.id)
+  }
+
+  @Test
+  fun `verify MyFavoritesScreen and SeriesCollectionDialog compose cleanly`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val repo = CartoonRepository(context)
+    val allSeries = com.example.data.model.CartoonSeriesCatalog.buildAllSeries(
+      supermanList = repo.getCuratedSuperman(),
+      popeyeList = repo.getCuratedPopeye(),
+      bettyList = repo.getCuratedBettyBoop(),
+      classicsSciFiList = repo.getCuratedClassicsAndSciFi(),
+      serialsList = repo.getCuratedSerials(),
+      favoriteSeriesIds = setOf("series_superman")
+    )
+    val favoriteSeries = allSeries.filter { it.isFavorite }
+    val recommended = allSeries.filter { !it.isFavorite }
+
+    val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+    val activity = controller.get()
+    activity.setContent {
+      RetroToonTheme {
+        com.example.ui.favorites.MyFavoritesScreen(
+          favoriteSeries = favoriteSeries,
+          recommendedSeries = recommended,
+          savedEpisodes = repo.getCuratedFeatured().take(2),
+          isWideScreen = true,
+          onOpenSeries = {},
+          onPlaySeriesMarathon = {},
+          onToggleFavoriteSeries = {},
+          onPlayEpisode = {},
+          onSelectDetail = {},
+          onToggleWatchlist = {},
+          onPlayFavoritesMarathon = {},
+          onExploreClick = {}
+        )
+        com.example.ui.favorites.SeriesCollectionDialog(
+          series = favoriteSeries.first(),
+          episodes = repo.getCuratedSuperman(),
+          onDismiss = {},
+          onPlayEpisode = {},
+          onPlayMarathon = {},
+          onToggleFavoriteSeries = {},
+          onToggleWatchlist = {}
+        )
+      }
+    }
+    assertNotNull(activity.window.decorView)
+  }
 }
+

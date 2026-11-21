@@ -176,7 +176,7 @@ fun DonationDialog(
                     IconButton(
                         onClick = onDismiss,
                         modifier = Modifier
-                            .size(34.dp)
+                            .size(48.dp)
                             .onFocusChanged { closeFocused = it.isFocused }
                             .background(
                                 if (closeFocused) RetroGold else Color.Transparent,

@@ -19,6 +19,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -39,7 +40,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -54,6 +54,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -68,7 +69,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -91,14 +94,29 @@ fun RetroSplashScreen(
     modifier: Modifier = Modifier
 ) {
     var countdown by remember { mutableIntStateOf(3) }
+    var crestVisible by remember { mutableStateOf(false) }
 
-    // Film leader clock sweep animation (360 degrees per second)
+    val crestScale by animateFloatAsState(
+        targetValue = if (crestVisible) 1f else 0.78f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "splash_crest_scale"
+    )
+    val crestAlpha by animateFloatAsState(
+        targetValue = if (crestVisible) 1f else 0f,
+        animationSpec = tween(420),
+        label = "splash_crest_alpha"
+    )
+
+    // Film leader clock sweep animation (360 degrees per beat)
     val infiniteTransition = rememberInfiniteTransition(label = "splash_infinite")
     val sweepAngle by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
+            animation = tween(780, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "sweep"
@@ -106,7 +124,7 @@ fun RetroSplashScreen(
 
     // Projector flicker & bulb chase transition
     val flickerAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.86f,
+        initialValue = 0.88f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(90, easing = LinearEasing),
@@ -120,7 +138,7 @@ fun RetroSplashScreen(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(420, easing = LinearEasing),
+            animation = tween(400, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "sprocketPhase"
@@ -131,7 +149,7 @@ fun RetroSplashScreen(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(600, easing = FastOutSlowInEasing),
+            animation = tween(550, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "marqueePulse"
@@ -141,16 +159,17 @@ fun RetroSplashScreen(
 
     // Countdown sequence: 3 -> 2 -> 1 -> ★ -> Finish
     LaunchedEffect(Unit) {
+        crestVisible = true
         try {
             enterFocusRequester.requestFocus()
         } catch (_: Exception) {}
-        delay(700)
+        delay(560)
         countdown = 2
-        delay(700)
+        delay(560)
         countdown = 1
-        delay(700)
+        delay(560)
         countdown = 0
-        delay(400)
+        delay(360)
         onFinished()
     }
 
@@ -437,13 +456,18 @@ fun RetroSplashScreen(
 
             Spacer(modifier = Modifier.height(spacingMedium))
 
-            // Golden Age Marquee Brand Frame with Animated Chase Bulbs
+            // Golden Age Marquee Brand Frame with Animated Chase Bulbs & Custom Brand Crest
             val chaseStep = ((sprocketPhase * 3f).toInt()) % 3
             Surface(
                 color = CinemaDark,
                 shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.5.dp, RetroGold.copy(alpha = 0.75f)),
-                tonalElevation = 8.dp
+                border = BorderStroke(1.5.dp, RetroGold.copy(alpha = 0.8f)),
+                tonalElevation = 8.dp,
+                modifier = Modifier.graphicsLayer {
+                    scaleX = crestScale
+                    scaleY = crestScale
+                    alpha = crestAlpha
+                }
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -469,19 +493,19 @@ fun RetroSplashScreen(
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
-                            color = RetroRuby,
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, RetroGold.copy(alpha = 0.85f)),
-                            modifier = Modifier.size(42.dp)
+                            color = Color(0xFF100E26),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.5.dp, RetroGold.copy(alpha = 0.9f)),
+                            modifier = Modifier.size(48.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Tv,
-                                    contentDescription = null,
-                                    tint = RetroCream,
-                                    modifier = Modifier.size(26.dp)
-                                )
-                            }
+                            Image(
+                                painter = painterResource(id = R.drawable.img_launcher_art),
+                                contentDescription = stringResource(R.string.app_name),
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(

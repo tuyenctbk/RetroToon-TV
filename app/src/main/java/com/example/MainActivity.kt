@@ -17,23 +17,19 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.RetroToonViewModel
 import com.example.ui.detail.CartoonDetailDialog
 import com.example.ui.donation.DonationDialog
 import com.example.ui.engagement.SuggestionDialog
+import com.example.ui.favorites.SeriesCollectionDialog
 import com.example.ui.home.HomeScreen
 import com.example.ui.player.RetroPlayerScreen
 import com.example.ui.splash.RetroSplashScreen
@@ -113,7 +109,7 @@ fun RetroToonApp(
     onToggleOrientation: () -> Unit,
     onResetOrientation: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val keyboardController = LocalSoftwareKeyboardController.current
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -143,11 +139,13 @@ fun RetroToonApp(
     LaunchedEffect(
         uiState.showDonationDialog,
         uiState.selectedDetailItem != null,
+        uiState.selectedSeries != null,
         uiState.playingItem != null,
         uiState.currentTab
     ) {
         if (uiState.showDonationDialog ||
             uiState.selectedDetailItem != null ||
+            uiState.selectedSeries != null ||
             uiState.playingItem != null ||
             uiState.currentTab != "search"
         ) {
@@ -157,7 +155,7 @@ fun RetroToonApp(
 
     Crossfade(
         targetState = uiState.isSplashVisible,
-        animationSpec = tween(600),
+        animationSpec = tween(550),
         label = "splash_crossfade"
     ) { isSplash ->
         if (isSplash) {
@@ -170,6 +168,8 @@ fun RetroToonApp(
                     RetroPlayerScreen(
                         cartoon = uiState.playingItem!!,
                         upNextCartoon = uiState.upNextItem,
+                        activeLiveChannel = uiState.activeLiveChannel,
+                        liveStartOffsetMs = uiState.liveStartOffsetMs,
                         streamUrl = uiState.resolvedStreamUrl,
                         subtitleUrl = uiState.resolvedSubtitleUrl,
                         hasAlternativeStream = uiState.candidateStreamUrls.size > 1,
@@ -179,6 +179,7 @@ fun RetroToonApp(
                         aspectMode = uiState.aspectMode,
                         onClose = { viewModel.closePlayer() },
                         onPlayNext = { viewModel.playNext() },
+                        onChannelSurf = { delta -> viewModel.surfLiveChannel(delta) },
                         onEffectChange = { viewModel.setFilmEffect(it) },
                         onAspectChange = { viewModel.setAspectMode(it) },
                         onSaveProgress = { id, pos, dur -> viewModel.saveProgress(id, pos, dur) },
@@ -198,8 +199,13 @@ fun RetroToonApp(
                             onTabSelected = { viewModel.selectTab(it) },
                             onCategoryFilterSelected = { viewModel.setCategoryFilter(it) },
                             onPlay = { viewModel.playItem(it) },
+                            onTuneLiveChannel = { viewModel.tuneLiveChannel(it) },
                             onSelectDetail = { viewModel.selectDetail(it) },
                             onToggleWatchlist = { viewModel.toggleWatchlist(it) },
+                            onOpenSeries = { viewModel.openSeries(it) },
+                            onPlaySeriesMarathon = { viewModel.playSeriesMarathon(it) },
+                            onToggleFavoriteSeries = { viewModel.toggleFavoriteSeries(it) },
+                            onPlayFavoritesMarathon = { viewModel.playFavoritesMarathon() },
                             onSetHero = { viewModel.setHero(it) },
                             onSearchQueryChanged = { viewModel.onSearchQueryChanged(it) },
                             onClearRecentlyWatched = { viewModel.clearRecentlyWatched() },
@@ -212,14 +218,31 @@ fun RetroToonApp(
                     }
                 }
 
-                // Details Modal Dialog
+                // Series Collection Modal Dialog (Episodes + Save Series to Room + Marathon)
                 if (uiState.playingItem == null) {
+                    uiState.selectedSeries?.let { series ->
+                        SeriesCollectionDialog(
+                            series = series,
+                            episodes = uiState.selectedSeriesEpisodes,
+                            onDismiss = { viewModel.closeSeries() },
+                            onPlayEpisode = { viewModel.playItem(it) },
+                            onPlayMarathon = { viewModel.playSeriesMarathon(it) },
+                            onToggleFavoriteSeries = { viewModel.toggleFavoriteSeries(it) },
+                            onToggleWatchlist = { viewModel.toggleWatchlist(it) }
+                        )
+                    }
+                }
+
+                // Details Modal Dialog
+                if (uiState.playingItem == null && uiState.selectedSeries == null) {
                     uiState.selectedDetailItem?.let { detailItem ->
                         CartoonDetailDialog(
                             cartoon = detailItem,
+                            relatedSeries = viewModel.resolveSeriesForItem(detailItem),
                             onDismiss = { viewModel.selectDetail(null) },
                             onPlay = { viewModel.playItem(it) },
                             onToggleWatchlist = { viewModel.toggleWatchlist(it) },
+                            onToggleFavoriteSeries = { viewModel.toggleFavoriteSeries(it) },
                             onDownload = { viewModel.downloadCartoon(it) },
                             onCopyStreamUrl = { viewModel.copyStreamUrl(it) }
                         )
@@ -237,7 +260,11 @@ fun RetroToonApp(
                 }
 
                 // Smart Suggestion Dialog (Rate / Share / Update)
-                if (uiState.playingItem == null && uiState.selectedDetailItem == null && !uiState.showDonationDialog) {
+                if (uiState.playingItem == null &&
+                    uiState.selectedDetailItem == null &&
+                    uiState.selectedSeries == null &&
+                    !uiState.showDonationDialog
+                ) {
                     uiState.activeSuggestion?.let { suggestion ->
                         SuggestionDialog(
                             suggestion = suggestion,

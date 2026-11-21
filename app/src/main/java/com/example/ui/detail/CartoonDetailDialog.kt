@@ -40,6 +40,8 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.PlayArrow
@@ -85,6 +87,7 @@ import com.example.R
 import com.example.data.ai.ArchivalHistorianHelper
 import com.example.data.download.DownloadHelper
 import com.example.data.model.CartoonItem
+import com.example.data.model.CartoonSeries
 import com.example.ui.theme.CinemaBorder
 import com.example.ui.theme.CinemaDark
 import com.example.ui.theme.CinemaSurface
@@ -98,9 +101,11 @@ import java.util.Locale
 @Composable
 fun CartoonDetailDialog(
     cartoon: CartoonItem,
+    relatedSeries: CartoonSeries? = null,
     onDismiss: () -> Unit,
     onPlay: (CartoonItem) -> Unit,
     onToggleWatchlist: (CartoonItem) -> Unit,
+    onToggleFavoriteSeries: ((CartoonSeries) -> Unit)? = null,
     onDownload: ((CartoonItem) -> Unit)? = null,
     onCopyStreamUrl: ((CartoonItem) -> Unit)? = null
 ) {
@@ -417,6 +422,61 @@ fun CartoonDetailDialog(
                             }
                         }
 
+                        // One-tap Save Parent Series to Room 'My Favorites'
+                        if (relatedSeries != null && onToggleFavoriteSeries != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            var seriesFavFocused by remember { mutableStateOf(false) }
+                            val seriesHeartScale by animateFloatAsState(
+                                targetValue = if (relatedSeries.isFavorite) 1.15f else 1.0f,
+                                animationSpec = spring(),
+                                label = "detail_series_heart_scale"
+                            )
+                            OutlinedButton(
+                                onClick = { onToggleFavoriteSeries(relatedSeries) },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = if (relatedSeries.isFavorite || seriesFavFocused) RetroGold else Color.White
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    width = if (seriesFavFocused || relatedSeries.isFavorite) 1.5.dp else 1.dp,
+                                    color = when {
+                                        seriesFavFocused -> RetroGold
+                                        relatedSeries.isFavorite -> RetroRuby
+                                        else -> Color.White.copy(alpha = 0.3f)
+                                    }
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .onFocusChanged { seriesFavFocused = it.isFocused }
+                                    .testTag("detail_save_series_button")
+                            ) {
+                                Icon(
+                                    imageVector = if (relatedSeries.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = null,
+                                    tint = if (relatedSeries.isFavorite) RetroRuby else RetroGold,
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .graphicsLayer {
+                                            scaleX = seriesHeartScale
+                                            scaleY = seriesHeartScale
+                                        }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (relatedSeries.isFavorite) {
+                                        stringResource(R.string.detail_series_saved_label, relatedSeries.title)
+                                    } else {
+                                        stringResource(R.string.detail_save_series_label, relatedSeries.title)
+                                    },
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(12.dp))
 
                         // Zero-Cost AI Archival Film Historian & On-Device Audio Docent Card
@@ -476,9 +536,9 @@ fun CartoonDetailDialog(
                                             width = if (ttsFocused) 2.dp else 1.dp,
                                             color = if (ttsFocused || isSpeaking) RetroGold else Color.White.copy(alpha = 0.35f)
                                         ),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                                         modifier = Modifier
-                                            .heightIn(min = 36.dp)
+                                            .heightIn(min = 44.dp)
                                             .onFocusChanged { ttsFocused = it.isFocused }
                                             .testTag("detail_tts_historian_button")
                                     ) {

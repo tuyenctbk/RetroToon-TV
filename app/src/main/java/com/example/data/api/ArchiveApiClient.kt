@@ -12,7 +12,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import org.json.JSONArray
 
 class ArchiveApiClient {
 
@@ -25,6 +27,29 @@ class ArchiveApiClient {
         .add(KotlinJsonAdapterFactory())
         .build()
 
+    private fun extractJsonText(raw: Any?, joiner: String = ", "): String? {
+        if (raw == null || raw === JSONObject.NULL) return null
+        return when (raw) {
+            is JSONArray -> {
+                val parts = mutableListOf<String>()
+                for (i in 0 until raw.length()) {
+                    val v = raw.optString(i, "").trim()
+                    if (v.isNotEmpty() && !v.equals("null", ignoreCase = true)) {
+                        parts.add(v)
+                    }
+                }
+                parts.joinToString(joiner).ifBlank { null }
+            }
+            else -> raw.toString().trim().takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+        }
+    }
+
+    private fun extractCleanYear(raw: Any?): String {
+        val text = extractJsonText(raw, " ") ?: return "1940s"
+        val match = Regex("\\b(19\\d{2}|20\\d{2})\\b").find(text)
+        return match?.value ?: text.filter { it.isDigit() }.take(4).ifBlank { "1940s" }
+    }
+
     suspend fun searchCartoons(query: String, rows: Int = 30): List<CartoonItem> = withContext(Dispatchers.IO) {
         val results = mutableListOf<CartoonItem>()
         try {
@@ -35,7 +60,7 @@ class ArchiveApiClient {
 
             val request = Request.Builder()
                 .url(url)
-                .header("User-Agent", "RetroToonTV-Leanback/1.0 (Android Leanback)")
+                .header("User-Agent", "RetroToonTV-Leanback/1.2 (Android Leanback)")
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -54,14 +79,18 @@ class ArchiveApiClient {
                     val identifier = docObj.optString("identifier", "")
                     if (identifier.isBlank()) continue
 
-                    val rawTitle = docObj.optString("title", identifier.replace("_", " "))
+                    val rawTitle = extractJsonText(docObj.opt("title"), " ") ?: identifier.replace("_", " ")
                     val cleanTitle = rawTitle.replace(Regex("(?i)\\.mp4$"), "").trim()
-                    val yearStr = docObj.opt("year")?.toString()?.take(4) ?: "1940s"
-                    val creatorStr = docObj.opt("creator")?.toString() ?: "Classic Animation"
-                    val descStr = docObj.opt("description")?.toString()
-                        ?.replace(Regex("<[^>]*>"), " ")?.trim() ?: "Vintage cartoon classic."
+                    if (cleanTitle.isBlank()) continue
+                    val yearStr = extractCleanYear(docObj.opt("year"))
+                    val creatorStr = extractJsonText(docObj.opt("creator"), ", ") ?: "Classic Animation"
+                    val descStr = extractJsonText(docObj.opt("description"), " ")
+                        ?.replace(Regex("<[^>]*>"), " ")
+                        ?.replace(Regex("\\s+"), " ")
+                        ?.trim()
+                        ?: "Vintage cartoon classic."
                     val downloadsCount = docObj.optLong("downloads", 0L)
-                    val runtimeStr = docObj.opt("runtime")?.toString() ?: "8m"
+                    val runtimeStr = extractJsonText(docObj.opt("runtime"), " ") ?: "8m"
 
                     results.add(
                         CartoonItem(
@@ -84,7 +113,7 @@ class ArchiveApiClient {
         return@withContext results
     }
 
-    private val subtitleCache = mutableMapOf<String, String>()
+    private val subtitleCache = ConcurrentHashMap<String, String>()
 
     fun getCachedSubtitleUrl(identifier: String): String? = subtitleCache[identifier]
 

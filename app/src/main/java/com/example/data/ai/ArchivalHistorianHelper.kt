@@ -70,6 +70,16 @@ object ArchivalHistorianHelper {
                 "Produced by Famous Studios with high-contrast theatrical cel painting, brassy orchestral scores, and Jack Mercer's signature improvised muttering vocals."
             titleLower.contains("betty boop") || titleLower.contains("bimbo") || titleLower.contains("koko") ->
                 "Crafted in New York's Inkwell / Fleischer Studios using rubber-hose ink-and-paint animation and early Western Electric optical sound-on-film synchronization."
+            titleLower.contains("stone age") || titleLower.contains("granite hotel") ->
+                "Produced in 1940 by Fleischer Studios as part of the 'Stone Age Cartoons' series—pioneering prehistoric gag comedy two decades before prime-time TV cartoons."
+            titleLower.contains("bleep") || creatorLower.contains("soundac") ->
+                "Created in 1957 by Robert D. Buchanan at Soundac Productions in Miami as the very first animated sci-fi series produced in color specifically for television."
+            titleLower.contains("casper") || titleLower.contains("herman") || titleLower.contains("katnip") ->
+                "Animated by Famous Studios (Paramount's successor to Fleischer Studios) using rich Technicolor cel shading and fast-paced orchestral slapstick timing."
+            titleLower.contains("kitties") || titleLower.contains("hare") || titleLower.contains("wabbit") || titleLower.contains("daffy") || creatorLower.contains("schlesinger") ->
+                "Directed at Termite Terrace under Leon Schlesinger Productions with snappy timing, Carl Stalling's musical cues, and iconic golden-age vocal characterizations."
+            titleLower.contains("woody") || creatorLower.contains("lantz") ->
+                "Produced by Walter Lantz Productions with vibrant Universal theatrical ink-and-paint and energetic manic slapstick animation."
             titleLower.contains("felix") ->
                 "Pioneered by Otto Messmer and Pat Sullivan Studios with expressive visual pantomime, surreal metamorphosing question marks, and high-contrast ink linework."
             titleLower.contains("keaton") || titleLower.contains("stooges") || creatorLower.contains("keaton") ->
@@ -216,6 +226,11 @@ object ArchivalHistorianHelper {
             lower.contains("felix") -> "Felix the Cat"
             lower.contains("keaton") || lower.contains("buster") -> "Buster Keaton"
             lower.contains("casper") -> "Casper"
+            lower.contains("herman") || lower.contains("katnip") -> "Herman and Katnip"
+            lower.contains("stone age") || lower.contains("granite") -> "Stone Age"
+            lower.contains("bleep") || lower.contains("space") -> "Colonel Bleep"
+            lower.contains("looney") || lower.contains("daffy") || lower.contains("hare") || lower.contains("wabbit") -> "Looney Tunes"
+            lower.contains("woody") -> "Woody Woodpecker"
             lower.contains("audrey") -> "Little Audrey"
             lower.contains("stooges") -> "Three Stooges"
             else -> raw

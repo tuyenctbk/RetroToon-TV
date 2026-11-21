@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -122,8 +123,13 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material3.LinearProgressIndicator
 import com.example.data.ai.CartoonTriviaAiService
 import com.example.data.ai.DidYouKnowFact
+import com.example.data.live.LiveTvChannel
 import com.example.data.model.CartoonItem
 import com.example.playback.RetroPlaybackService
 import com.example.ui.AspectMode
@@ -140,6 +146,8 @@ import kotlinx.coroutines.delay
 fun RetroPlayerScreen(
     cartoon: CartoonItem,
     upNextCartoon: CartoonItem? = null,
+    activeLiveChannel: LiveTvChannel? = null,
+    liveStartOffsetMs: Long = 0L,
     streamUrl: String?,
     subtitleUrl: String? = null,
     hasAlternativeStream: Boolean = false,
@@ -149,6 +157,7 @@ fun RetroPlayerScreen(
     aspectMode: AspectMode,
     onClose: () -> Unit,
     onPlayNext: () -> Unit,
+    onChannelSurf: (Int) -> Unit = {},
     onEffectChange: (FilmEffect) -> Unit,
     onAspectChange: (AspectMode) -> Unit,
     onSaveProgress: (String, Long, Long) -> Unit,
@@ -181,10 +190,27 @@ fun RetroPlayerScreen(
         }
     }
 
+    val isLiveTvMode = activeLiveChannel != null
     val latestCartoon by rememberUpdatedState(cartoon)
+    val latestIsLiveTvMode by rememberUpdatedState(isLiveTvMode)
+    val latestOnPlayNext by rememberUpdatedState(onPlayNext)
     val latestOnSaveProgress by rememberUpdatedState(onSaveProgress)
     val latestOnRetryStream by rememberUpdatedState(onRetryStream)
     val latestHasAlternativeStream by rememberUpdatedState(hasAlternativeStream)
+
+    // Brief animated 2.2s Retro Station Bumper when tuning into a Live TV channel or transitioning live shorts
+    var showStationBumper by remember(activeLiveChannel?.id, cartoon.id) {
+        mutableStateOf(activeLiveChannel != null)
+    }
+    LaunchedEffect(activeLiveChannel?.id, cartoon.id) {
+        if (activeLiveChannel != null) {
+            showStationBumper = true
+            delay(2200L)
+            showStationBumper = false
+        } else {
+            showStationBumper = false
+        }
+    }
 
     LaunchedEffect(cartoon.id) {
         try {
@@ -304,18 +330,19 @@ fun RetroPlayerScreen(
         ragtimePiano.setPlaying(shouldPlayPiano)
     }
 
-    var lastPreparedMediaId by remember { mutableStateOf<String?>(null) }
+    var lastPreparedMediaKey by remember { mutableStateOf<String?>(null) }
 
     // Connect streamUrl with rich MediaMetadata & optional sidecar subtitles
-    LaunchedEffect(streamUrl, subtitleUrl, cartoon.id) {
+    LaunchedEffect(streamUrl, subtitleUrl, cartoon.id, activeLiveChannel?.id) {
         if (!streamUrl.isNullOrBlank()) {
-            val isSameMediaSwitch = lastPreparedMediaId == cartoon.id
-            val resumePos = if (isSameMediaSwitch && currentPositionMs > 0L) {
-                currentPositionMs
-            } else {
-                cartoon.watchProgressMs.coerceAtLeast(0L)
+            val currentMediaKey = "${activeLiveChannel?.id ?: "vod"}:${cartoon.id}"
+            val isSameMediaSwitch = lastPreparedMediaKey == currentMediaKey
+            val resumePos = when {
+                isSameMediaSwitch && currentPositionMs > 0L -> currentPositionMs
+                activeLiveChannel != null -> liveStartOffsetMs.coerceAtLeast(0L)
+                else -> cartoon.watchProgressMs.coerceAtLeast(0L)
             }
-            lastPreparedMediaId = cartoon.id
+            lastPreparedMediaKey = currentMediaKey
             playbackError = null
             isBuffering = true
             isEnded = false
@@ -373,13 +400,18 @@ fun RetroPlayerScreen(
                         audioSessionId = exoPlayer.audioSessionId,
                         enableBoost = latestAudioMode == PlayerAudioMode.BOOST && !isSilentFilmAutoPiano
                     )
-                    if (durationMs > 0L) {
+                    if (durationMs > 0L && !latestIsLiveTvMode) {
                         latestOnSaveProgress(latestCartoon.id, exoPlayer.currentPosition.coerceAtLeast(0L), durationMs)
                     }
                 } else if (state == Player.STATE_ENDED) {
-                    isEnded = true
-                    marathonCountdown = 5
-                    latestOnSaveProgress(latestCartoon.id, 0L, durationMs)
+                    if (latestIsLiveTvMode) {
+                        // In 24/7 Live TV mode, seamlessly roll into the next scheduled short
+                        latestOnPlayNext()
+                    } else {
+                        isEnded = true
+                        marathonCountdown = 5
+                        latestOnSaveProgress(latestCartoon.id, 0L, durationMs)
+                    }
                 }
             }
 
@@ -431,7 +463,7 @@ fun RetroPlayerScreen(
             RetroPlaybackService.detachPlayerAndReleaseController(exoPlayer, controllerFuture)
             val currentPos = exoPlayer.currentPosition
             val totalDur = exoPlayer.duration.coerceAtLeast(durationMs)
-            if (currentPos > 0 && !isEnded) {
+            if (currentPos > 0 && !isEnded && !latestIsLiveTvMode) {
                 latestOnSaveProgress(latestCartoon.id, currentPos, totalDur)
             }
             exoPlayer.release()
@@ -449,7 +481,7 @@ fun RetroPlayerScreen(
                 } else if (silenceDetector.isConfirmedZeroAmplitudeTrack()) {
                     if (!isSilentFilmAutoPiano) isSilentFilmAutoPiano = true
                 }
-                if (currentPositionMs > 0 && currentPositionMs % 5000L < 1000L) {
+                if (!latestIsLiveTvMode && currentPositionMs > 0 && currentPositionMs % 5000L < 1000L) {
                     latestOnSaveProgress(latestCartoon.id, currentPositionMs, durationMs)
                 }
             }
@@ -549,26 +581,54 @@ fun RetroPlayerScreen(
                             true
                         }
                         KeyEvent.KEYCODE_MEDIA_REWIND -> {
-                            val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
-                            exoPlayer.seekTo(newPos)
-                            currentPositionMs = newPos
-                            showRewindGesture = true
-                            areControlsVisible = true
-                            lastInteractionTime = System.currentTimeMillis()
-                            true
+                            if (isLiveTvMode) {
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            } else {
+                                val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                exoPlayer.seekTo(newPos)
+                                currentPositionMs = newPos
+                                showRewindGesture = true
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            }
                         }
                         KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                            val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
-                            exoPlayer.seekTo(newPos)
-                            currentPositionMs = newPos
-                            showForwardGesture = true
-                            areControlsVisible = true
-                            lastInteractionTime = System.currentTimeMillis()
-                            true
+                            if (isLiveTvMode) {
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            } else {
+                                val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
+                                exoPlayer.seekTo(newPos)
+                                currentPositionMs = newPos
+                                showForwardGesture = true
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            }
                         }
                         KeyEvent.KEYCODE_MEDIA_NEXT -> {
                             onPlayNext()
                             true
+                        }
+                        KeyEvent.KEYCODE_CHANNEL_UP -> {
+                            if (isLiveTvMode) {
+                                onChannelSurf(1)
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            } else false
+                        }
+                        KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                            if (isLiveTvMode) {
+                                onChannelSurf(-1)
+                                areControlsVisible = true
+                                lastInteractionTime = System.currentTimeMillis()
+                                true
+                            } else false
                         }
                         KeyEvent.KEYCODE_VOLUME_MUTE -> {
                             audioMode = if (audioMode == PlayerAudioMode.MUTE) PlayerAudioMode.BOOST else PlayerAudioMode.MUTE
@@ -586,10 +646,14 @@ fun RetroPlayerScreen(
                         }
                         KeyEvent.KEYCODE_DPAD_LEFT -> {
                             if (isRootPlayerFocused && !isEnded && playbackError == null) {
-                                val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
-                                exoPlayer.seekTo(newPos)
-                                currentPositionMs = newPos
-                                showRewindGesture = true
+                                if (isLiveTvMode) {
+                                    onChannelSurf(-1)
+                                } else {
+                                    val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                    exoPlayer.seekTo(newPos)
+                                    currentPositionMs = newPos
+                                    showRewindGesture = true
+                                }
                                 areControlsVisible = true
                                 lastInteractionTime = System.currentTimeMillis()
                                 true
@@ -597,10 +661,14 @@ fun RetroPlayerScreen(
                         }
                         KeyEvent.KEYCODE_DPAD_RIGHT -> {
                             if (isRootPlayerFocused && !isEnded && playbackError == null) {
-                                val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
-                                exoPlayer.seekTo(newPos)
-                                currentPositionMs = newPos
-                                showForwardGesture = true
+                                if (isLiveTvMode) {
+                                    onChannelSurf(1)
+                                } else {
+                                    val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
+                                    exoPlayer.seekTo(newPos)
+                                    currentPositionMs = newPos
+                                    showForwardGesture = true
+                                }
                                 areControlsVisible = true
                                 lastInteractionTime = System.currentTimeMillis()
                                 true
@@ -646,17 +714,23 @@ fun RetroPlayerScreen(
                         onDoubleTap = { offset ->
                             val width = size.width
                             if (offset.x < width * 0.4f) {
-                                // Double tap left: Rewind 10s
-                                val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
-                                exoPlayer.seekTo(newPos)
-                                currentPositionMs = newPos
-                                showRewindGesture = true
+                                if (latestIsLiveTvMode) {
+                                    onChannelSurf(-1)
+                                } else {
+                                    val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                    exoPlayer.seekTo(newPos)
+                                    currentPositionMs = newPos
+                                    showRewindGesture = true
+                                }
                             } else if (offset.x > width * 0.6f) {
-                                // Double tap right: Forward 10s
-                                val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
-                                exoPlayer.seekTo(newPos)
-                                currentPositionMs = newPos
-                                showForwardGesture = true
+                                if (latestIsLiveTvMode) {
+                                    onChannelSurf(1)
+                                } else {
+                                    val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(durationMs)
+                                    exoPlayer.seekTo(newPos)
+                                    currentPositionMs = newPos
+                                    showForwardGesture = true
+                                }
                             } else {
                                 // Double tap center: Cycle aspect ratio
                                 val nextMode = when (aspectMode) {
@@ -987,6 +1061,81 @@ fun RetroPlayerScreen(
             }
         }
 
+        // Animated 24/7 Live TV Retro Station Bumper Slate
+        AnimatedVisibility(
+            visible = showStationBumper && activeLiveChannel != null && !isInPipMode,
+            enter = fadeIn(tween(260)),
+            exit = fadeOut(tween(420)),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(start = 24.dp, top = 74.dp)
+        ) {
+            activeLiveChannel?.let { liveCh ->
+                val chAccent = Color(liveCh.accentHex)
+                Surface(
+                    color = CinemaDark.copy(alpha = 0.94f),
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, chAccent),
+                    modifier = Modifier.testTag("player_live_station_bumper")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            color = RetroRuby,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.live_ch_short, liveCh.number),
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    text = stringResource(R.string.live_badge),
+                                    color = RetroGold,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = stringResource(liveCh.nameRes),
+                                color = chAccent,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = cartoon.title,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            upNextCartoon?.let { next ->
+                                Text(
+                                    text = "${stringResource(R.string.live_up_next_label)}: ${next.title}",
+                                    color = RetroCream.copy(alpha = 0.75f),
+                                    fontSize = 10.5.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Loading spinner
         if ((isResolving || isBuffering) && playbackError == null && !isInPipMode && !isEnded) {
             Column(
@@ -1033,7 +1182,8 @@ fun RetroPlayerScreen(
                 shape = RoundedCornerShape(12.dp),
                 border = androidx.compose.foundation.BorderStroke(1.dp, RetroGold.copy(alpha = 0.65f)),
                 modifier = Modifier
-                    .fillMaxWidth(0.68f)
+                    .widthIn(max = 460.dp)
+                    .fillMaxWidth()
                     .testTag("player_did_you_know_card")
             ) {
                 Column(
@@ -1144,17 +1294,55 @@ fun RetroPlayerScreen(
                     Spacer(modifier = Modifier.width(10.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = cartoon.title,
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activeLiveChannel?.let { liveCh ->
+                                Surface(
+                                    color = RetroRuby,
+                                    shape = RoundedCornerShape(6.dp),
+                                    modifier = Modifier.testTag("player_live_badge")
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "${stringResource(R.string.live_ch_short, liveCh.number)} • ${stringResource(R.string.live_badge)}",
+                                            color = Color.White,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = cartoon.title,
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "${cartoon.year} • ${cartoon.creator}",
+                                text = if (activeLiveChannel != null) {
+                                    "${stringResource(activeLiveChannel.nameRes)} • ${cartoon.year}"
+                                } else {
+                                    "${cartoon.year} • ${cartoon.creator}"
+                                },
                                 color = Color.White.copy(alpha = 0.7f),
                                 fontSize = 11.sp,
                                 maxLines = 1,
@@ -1452,7 +1640,7 @@ fun RetroPlayerScreen(
                     }
                 }
 
-                // Bottom Timeline Scrubber
+                // Bottom Timeline Scrubber (VOD) or Live Broadcast Bar (24/7 Live TV)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1463,73 +1651,181 @@ fun RetroPlayerScreen(
                     val totalDuration = if (durationMs > 0) durationMs.toFloat() else 1f
                     val currentPosFloat = if (isUserSeeking) seekSliderPosition else currentPositionMs.toFloat()
 
-                    Slider(
-                        value = (currentPosFloat / totalDuration).coerceIn(0f, 1f),
-                        onValueChange = { ratio ->
-                            isUserSeeking = true
-                            seekSliderPosition = ratio * totalDuration
-                            lastInteractionTime = System.currentTimeMillis()
-                        },
-                        onValueChangeFinished = {
-                            exoPlayer.seekTo(seekSliderPosition.toLong())
-                            currentPositionMs = seekSliderPosition.toLong()
-                            isUserSeeking = false
-                            lastInteractionTime = System.currentTimeMillis()
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = RetroGold,
-                            activeTrackColor = RetroGold,
-                            inactiveTrackColor = Color.White.copy(alpha = 0.25f)
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("player_timeline_slider")
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = formatTimeMs(if (isUserSeeking) seekSliderPosition.toLong() else currentPositionMs),
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                    if (isLiveTvMode) {
+                        LinearProgressIndicator(
+                            progress = { (currentPosFloat / totalDuration).coerceIn(0f, 1f) },
+                            color = RetroRuby,
+                            trackColor = Color.White.copy(alpha = 0.25f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .testTag("player_live_progress")
                         )
-
-                        // Next short in marathon button
-                        TvFocusableIconButton(
-                            onClick = {
-                                onPlayNext()
-                                lastInteractionTime = System.currentTimeMillis()
-                            },
-                            modifier = Modifier.focusRequester(nextShortFocusRequester),
-                            tag = "player_next_button"
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = stringResource(R.string.next_short),
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Default.SkipNext,
-                                    contentDescription = stringResource(R.string.next_short),
-                                    tint = RetroGold,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                TvFocusableIconButton(
+                                    onClick = {
+                                        onChannelSurf(-1)
+                                        lastInteractionTime = System.currentTimeMillis()
+                                    },
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.14f)),
+                                    tag = "player_channel_down_button"
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                            contentDescription = stringResource(R.string.live_ch_prev),
+                                            tint = RetroGold,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.live_ch_prev),
+                                            color = Color.White,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                TvFocusableIconButton(
+                                    onClick = {
+                                        onChannelSurf(1)
+                                        lastInteractionTime = System.currentTimeMillis()
+                                    },
+                                    modifier = Modifier
+                                        .focusRequester(nextShortFocusRequester)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.14f)),
+                                    tag = "player_channel_up_button"
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.live_ch_next),
+                                            color = Color.White,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowUp,
+                                            contentDescription = stringResource(R.string.live_ch_next),
+                                            tint = RetroGold,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            upNextCartoon?.let { next ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier
+                                        .weight(1f, fill = false)
+                                        .padding(start = 12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LiveTv,
+                                        contentDescription = null,
+                                        tint = RetroGold,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Text(
+                                        text = "${stringResource(R.string.live_up_next_label)}: ${next.title}",
+                                        color = RetroCream.copy(alpha = 0.9f),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
-
-                        Text(
-                            text = formatTimeMs(durationMs),
-                            color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                    } else {
+                        Slider(
+                            value = (currentPosFloat / totalDuration).coerceIn(0f, 1f),
+                            onValueChange = { ratio ->
+                                isUserSeeking = true
+                                seekSliderPosition = ratio * totalDuration
+                                lastInteractionTime = System.currentTimeMillis()
+                            },
+                            onValueChangeFinished = {
+                                exoPlayer.seekTo(seekSliderPosition.toLong())
+                                currentPositionMs = seekSliderPosition.toLong()
+                                isUserSeeking = false
+                                lastInteractionTime = System.currentTimeMillis()
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = RetroGold,
+                                activeTrackColor = RetroGold,
+                                inactiveTrackColor = Color.White.copy(alpha = 0.25f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("player_timeline_slider")
                         )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formatTimeMs(if (isUserSeeking) seekSliderPosition.toLong() else currentPositionMs),
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+
+                            // Next short in marathon button
+                            TvFocusableIconButton(
+                                onClick = {
+                                    onPlayNext()
+                                    lastInteractionTime = System.currentTimeMillis()
+                                },
+                                modifier = Modifier.focusRequester(nextShortFocusRequester),
+                                tag = "player_next_button"
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = stringResource(R.string.next_short),
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.SkipNext,
+                                        contentDescription = stringResource(R.string.next_short),
+                                        tint = RetroGold,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = formatTimeMs(durationMs),
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }

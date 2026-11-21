@@ -155,6 +155,20 @@ object CartoonTriviaAiService {
                 "Voice actor Jack Mercer improvised many of Popeye's famous under-his-breath mutterings live at the microphone during Fleischer recording sessions."
             titleLower.contains("betty boop") ->
                 "Mae Questel's signature 'Boop-Oop-A-Doop' vocals helped make Betty Boop the first animated character to headline her own theatrical series."
+            titleLower.contains("kitties") ->
+                "'A Tale of Two Kitties' (1942), directed by Bob Clampett, introduced audiences to the famous feisty little bird—and the two cats spoofed Abbott and Costello!"
+            titleLower.contains("hare") || titleLower.contains("wabbit") || titleLower.contains("daffy") ->
+                "Composer Carl Stalling synchronized every cartoon crash, tiptoe, and zip to exact musical beats using a specialized click-track bar sheet."
+            titleLower.contains("casper") ->
+                "Casper first appeared in 'The Friendly Ghost' (1945) as a Noveltoon short adapted from an unpublished children's storybook by Seymour Reit and Joe Oriolo."
+            titleLower.contains("herman") || titleLower.contains("katnip") ->
+                "Herman the tough Bronx mouse was voiced by Arnold Stang, turning classic cat-and-mouse slapstick into a streetwise comedy rivalry."
+            titleLower.contains("stone age") || titleLower.contains("granite") ->
+                "Fleischer Studios' 1940 'Stone Age Cartoons' invented rock-age appliances and dinosaur gags twenty years before prehistoric cartoons hit prime-time TV!"
+            titleLower.contains("bleep") ->
+                "Premiering in 1957, 'Colonel Bleep' holds the distinction of being the very first animated cartoon series ever produced in color specifically for television."
+            titleLower.contains("woody") ->
+                "Mel Blanc originally performed Woody Woodpecker's iconic staccato laugh before voice actor Ben Hardaway took over the role in 1941."
             titleLower.contains("felix") ->
                 "In 1928, a paper-mache statue of Felix the Cat became the very first image ever broadcast by RCA's experimental mechanical television transmitter!"
             titleLower.contains("keaton") ->
